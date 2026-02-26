@@ -1,0 +1,96 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# NFI REPORT — Déploiement automatique sur GitHub Pages
+# Domaine : nfireport.com
+# Déclenchement : push sur `main` ou lancement manuel
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: 🚀 Deploy → nfireport.com
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:          # Permet un déclenchement manuel depuis l'interface GitHub
+
+# Permissions nécessaires pour pousser sur la branche gh-pages
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true   # Annule un déploiement en cours si un nouveau push arrive
+
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # 1 ─ Récupération du code ─────────────────────────────────────────────
+      - name: ⬇️ Checkout du code source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # Historique complet (utile pour les outils d'analyse)
+
+      # 2 ─ Environnement pnpm ───────────────────────────────────────────────
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9          # Version LTS stable de pnpm
+
+      # 3 ─ Node.js avec cache pnpm ──────────────────────────────────────────
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm          # Met en cache node_modules entre les runs
+
+      # 4 ─ Installation des dépendances ────────────────────────────────────
+      - name: 📥 Installation des dépendances
+        run: pnpm install --frozen-lockfile
+        # --frozen-lockfile : garantit la reproductibilité du build
+        # (échoue si pnpm-lock.yaml n'est pas à jour)
+
+      # 5 ─ Build de production ─────────────────────────────────────────────
+      - name: 🏗️ Build de production
+        run: pnpm build
+        env:
+          # ── Clerk (Authentification) ────────────────────────────────────
+          # → Réglage : GitHub repo → Settings → Secrets and variables → Actions
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
+          # ── Supabase (Base de données) ───────────────────────────────────
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+          # ── PostHog (Analytics) ──────────────────────────────────────────
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+
+          # ── Environnement ────────────────────────────────────────────────
+          VITE_APP_ENV: production
+          NODE_ENV: production
+
+      # 6 ─ Déploiement sur GitHub Pages ────────────────────────────────────
+      - name: 🌐 Déploiement sur GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist         # Dossier de build Vite
+          publish_branch: gh-pages    # Branche cible de GitHub Pages
+          cname: nfireport.com        # Domaine personnalisé → génère le fichier CNAME
+          force_orphan: true          # Branche gh-pages sans historique (build plus léger)
+          commit_message: |
+            deploy: ${{ github.sha }}
+            [skip ci]
+
+      # 7 ─ Résumé du déploiement ───────────────────────────────────────────
+      - name: ✅ Résumé
+        if: success()
+        run: |
+          echo "### ✅ Déploiement réussi !" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌍 **URL** : https://nfireport.com" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Commit** : \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "🕐 **Date** : $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
