@@ -66,7 +66,7 @@ export default defineConfig({
 
   // Base URL — "/" pour un domaine racine (nfireport.com)
   // À changer en "/nom-du-repo/" si le site est hébergé sur un sous-chemin GitHub Pages
-  base: '/',
+
 
   build: {
     outDir: 'dist',
