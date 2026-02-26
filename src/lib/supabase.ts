@@ -5,10 +5,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
  * Une seule instance GoTrueClient dans tout le browser context.
  */
 
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL
-                         ?? "https://iklwebbglkldowxoikkg.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-                         ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrbHdlYmJnbGtsZG93eG9pa2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzgzMzEsImV4cCI6MjA4NzU1NDMzMX0.WzFA2K_SEFYKvTGBj8DMt_yaKvSX_HPFYgmFwaGQs9A";
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      ?? "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 const SUPABASE_READY =
   SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.startsWith("eyJ");

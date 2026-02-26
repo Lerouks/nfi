@@ -121,7 +121,10 @@ const fmt = (n: number) =>
 
 const COLORS = ["#00A651", "#E53E3E", "#0D1B35"];
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface TooltipEntry { name: string; value: number; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[]; }
+
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border rounded-xl shadow-lg px-4 py-3 text-sm" style={{ borderColor: "rgba(0,0,0,0.1)" }}>

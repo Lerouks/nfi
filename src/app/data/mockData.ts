@@ -1,7 +1,7 @@
 // ============================================================
 // NFI REPORT — Mock Data
 // ============================================================
-import redactionAvatar from "figma:asset/66e50a62702000f7e8b34cda9a4a1f13bc5306f7.png";
+const redactionAvatar = "/redaction-avatar.png";
 
 export interface Author {
   id: string;

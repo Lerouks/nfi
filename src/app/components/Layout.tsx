@@ -22,14 +22,22 @@ function PersistRoute() {
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
-    const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved && saved !== "/" && location.pathname === "/") {
-      navigate(saved, { replace: true });
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved && saved !== "/" && location.pathname === "/") {
+        navigate(saved, { replace: true });
+      }
+    } catch {
+      // sessionStorage indisponible (navigation privée / stockage désactivé)
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    sessionStorage.setItem(SESSION_KEY, location.pathname);
+    try {
+      sessionStorage.setItem(SESSION_KEY, location.pathname);
+    } catch {
+      // sessionStorage indisponible
+    }
   }, [location.pathname]);
 
   return null;
