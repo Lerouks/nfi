@@ -48,6 +48,7 @@ function figmaAssetPlugin(): Plugin {
 
 // ─── Configuration Vite ───────────────────────────────────────────────────────
 export default defineConfig({
+  base: "/nfi/",
   plugins: [
     react(),
     tailwindcss(),
