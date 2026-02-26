@@ -70,12 +70,15 @@ const DEFAULT: Scenario = {
   monthly: 0,
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { name: string; value: number; stroke?: string; fill?: string; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string | number; }
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload?.length) {
     return (
       <div className="bg-white border rounded-xl shadow-lg px-4 py-3 text-sm min-w-[180px]" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
         <p className="text-gray-400 text-xs mb-2">Année {label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <div key={p.name} className="flex justify-between gap-4">
             <span style={{ color: p.stroke || p.fill, fontSize: 12 }}>{p.name}</span>
             <span className="font-semibold text-gray-800" style={{ fontSize: 12 }}>
@@ -223,7 +226,7 @@ export default function CompoundCalc() {
   const maxYears = Math.max(...scenarios.map((s) => s.years));
   const compareData = useMemo(() => {
     return Array.from({ length: maxYears + 1 }, (_, y) => {
-      const point: Record<string, any> = { year: y };
+      const point: Record<string, number> = { year: y };
       allData.forEach((d) => {
         point[d.label] = d.series[y]?.total ?? d.series[d.series.length - 1].total;
       });

@@ -150,12 +150,15 @@ const PERIOD_LABELS: Record<Period, string[]> = {
   "1A": yearLabels,
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry { dataKey: string; name: string; value: number; stroke: string; unit?: string; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string; }
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload?.length) {
     return (
       <div className="bg-white border rounded-xl shadow-lg px-4 py-3 text-sm" style={{ borderColor: "rgba(0,0,0,0.1)" }}>
         <p className="text-gray-400 text-xs mb-1">{label}</p>
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <p key={p.dataKey} style={{ color: p.stroke }} className="font-semibold">
             {p.name}: {p.value} {p.unit}
           </p>
@@ -183,7 +186,7 @@ export default function EconomicIndices() {
   const chartData = useMemo(() => {
     const labels = PERIOD_LABELS[period];
     return labels.map((label, i) => {
-      const point: Record<string, any> = { label };
+      const point: Record<string, number | string> = { label };
       INDICES.filter((idx) => selectedIds.includes(idx.id)).forEach((idx) => {
         const series = dynamicSeries[idx.id]?.[period] ?? idx.series[period];
         point[idx.id] = series[i] ?? series[series.length - 1];

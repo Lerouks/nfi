@@ -51,7 +51,7 @@ export default function Home() {
                     {featured[0].excerpt}
                   </p>
                   <div className="flex items-center gap-3">
-                    <img src={featured[0].author.avatar} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-white/30" loading="lazy" />
+                    <img src={featured[0].author.avatar} alt={featured[0].author.name} className="w-8 h-8 rounded-full object-cover border-2 border-white/30" loading="lazy" />
                     <div>
                       <p className="text-white text-xs font-medium">{featured[0].author.name}</p>
                       <p className="text-gray-400 text-[10px] flex items-center gap-1">
@@ -186,7 +186,7 @@ export default function Home() {
                         {article.views.toLocaleString("fr-FR")} vues
                       </p>
                     </div>
-                    <img src={article.cover} alt="" className="w-16 h-12 object-cover rounded-lg shrink-0" loading="lazy" />
+                    <img src={article.cover} alt={article.title} className="w-16 h-12 object-cover rounded-lg shrink-0" loading="lazy" />
                   </div>
                 ))}
               </div>

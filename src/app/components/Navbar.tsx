@@ -349,7 +349,7 @@ export function Navbar() {
                     className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                     onClick={closeSearch}
                   >
-                    <img src={article.cover} alt="" className="w-12 h-9 object-cover rounded-lg shrink-0" loading="lazy" />
+                    <img src={article.cover} alt={article.title} className="w-12 h-9 object-cover rounded-lg shrink-0" loading="lazy" />
                     <div>
                       <p className="text-xs text-[#00A651] mb-0.5">{article.category}</p>
                       <p className="text-sm text-gray-800 line-clamp-2">{article.title}</p>
