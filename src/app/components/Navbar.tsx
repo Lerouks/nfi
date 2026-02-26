@@ -6,7 +6,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { MARKET_DATA, searchArticles } from "../data/mockData";
-const logoImg = "/logo.png";
+import logoImg from "@/assets/logo";
 import { ClerkNavAuth, ClerkMobileAuth } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
 
