@@ -71,6 +71,7 @@
  */
 
 const EDGE_EMAIL_URL = import.meta.env.VITE_EDGE_EMAIL_URL ?? "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 /**
  * Envoie l'email de bienvenue via la Supabase Edge Function.
@@ -87,7 +88,10 @@ export async function sendWelcomeEmail(email: string): Promise<void> {
   try {
     const res = await fetch(EDGE_EMAIL_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      },
       body: JSON.stringify({ email }),
     });
     if (!res.ok) {
