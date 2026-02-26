@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Twitter, Linkedin, Mail, Target, Eye, Shield, Globe } from "lucide-react";
 import { NewsletterSignup } from "../components/NewsletterSignup";
-import logoImg from "figma:asset/a065fc2ae43244b653228f2295d7f31bb24a3fb7.png";
+import logoImg from "@/assets/a065fc2ae43244b653228f2295d7f31bb24a3fb7.png";
 // ─── Équipe fondatrice ────────────────────────────────────────────────────────
 const FOUNDERS = [
   {

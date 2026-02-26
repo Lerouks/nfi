@@ -6,7 +6,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { MARKET_DATA, searchArticles } from "../data/mockData";
-import logoImg from "figma:asset/a065fc2ae43244b653228f2295d7f31bb24a3fb7.png";
+import logoImg from "@/assets/a065fc2ae43244b653228f2295d7f31bb24a3fb7.png";
 import { ClerkNavAuth, ClerkMobileAuth } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
 
