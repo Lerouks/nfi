@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router";
 import { Search, Filter, X, TrendingUp } from "lucide-react";
-import { searchArticles, CATEGORIES, TRENDING_TAGS, ARTICLES } from "../data/mockData";
+import { CATEGORIES, TRENDING_TAGS, type Article } from "../data/mockData";
+import { searchArticles as sanitySearch, getAllArticles, toArticle } from "../../lib/sanity";
 import { ArticleCard } from "../components/ArticleCard";
 
 export default function SearchPage() {
@@ -10,8 +11,17 @@ export default function SearchPage() {
   const [inputValue, setInputValue] = useState(query);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<"all" | "free" | "premium">("all");
+  const [results, setResults] = useState<Article[]>([]);
+  const [recentArticles, setRecentArticles] = useState<Article[]>([]);
 
-  const results = query ? searchArticles(query) : [];
+  useEffect(() => {
+    if (query) {
+      sanitySearch(query).then((data) => setResults(data.map(toArticle)));
+    } else {
+      setResults([]);
+      getAllArticles().then((data) => setRecentArticles(data.slice(0, 6).map(toArticle)));
+    }
+  }, [query]);
 
   const filtered = results.filter((a) => {
     const catMatch = selectedCategory === "all" || a.categorySlug === selectedCategory;
@@ -159,7 +169,7 @@ export default function SearchPage() {
               <h2 className="text-gray-900 font-bold text-lg">Articles récents</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ARTICLES.slice(0, 6).map((article) => (
+              {recentArticles.map((article) => (
                 <ArticleCard key={article.id} article={article} variant="grid" />
               ))}
             </div>

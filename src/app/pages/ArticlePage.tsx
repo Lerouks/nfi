@@ -1,14 +1,18 @@
 import { useParams, Link } from "react-router";
 import { useState, useEffect } from "react";
 import {
-  Clock, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck,
+  Clock, Eye, MessageCircle, Bookmark, BookmarkCheck,
   ChevronRight, Twitter, Linkedin, Facebook, Lock,
   ThumbsUp, Send, TrendingUp, Copy, Check,
 } from "lucide-react";
+import { PortableText } from "@portabletext/react";
 import {
-  getArticleBySlug, getRelatedArticles, COMMENTS, TRENDING_TAGS,
-  formatDate, ARTICLES,
+  COMMENTS, formatDate, type Article,
 } from "../data/mockData";
+import {
+  getArticleBySlug, getAllArticles, toArticle,
+  type SanityArticle,
+} from "../../lib/sanity";
 import { ArticleCard } from "../components/ArticleCard";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -16,22 +20,43 @@ import { MarketOverview } from "../components/MarketTicker";
 
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
-  const article = slug ? getArticleBySlug(slug) : undefined;
+  const [sanityArticle, setSanityArticle] = useState<SanityArticle | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState(COMMENTS);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
-  // Titre de page dynamique
   useEffect(() => {
-    if (article) {
-      document.title = `${article.title} — NFI REPORT`;
+    if (!slug) return;
+    setLoading(true);
+    getArticleBySlug(slug).then((data) => {
+      setSanityArticle(data);
+      setLoading(false);
+    });
+    getAllArticles().then((data) => {
+      setRelatedArticles(data.slice(0, 4).map(toArticle));
+    });
+  }, [slug]);
+
+  useEffect(() => {
+    if (sanityArticle) {
+      document.title = `${sanityArticle.title} — NFI REPORT`;
     }
     return () => { document.title = "NFI REPORT - La référence financière et économique au Niger"; };
-  }, [article]);
+  }, [sanityArticle]);
 
-  if (!article) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#00A651] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!sanityArticle) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
         <div className="text-center">
@@ -42,12 +67,9 @@ export default function ArticlePage() {
     );
   }
 
-  const related = getRelatedArticles(article);
+  const article = toArticle(sanityArticle);
   const isPremiumLocked = article.isPremium;
   const PREVIEW_PARAGRAPHS = 2;
-
-  const paragraphs = article.content.split("\n\n");
-  const previewContent = paragraphs.slice(0, PREVIEW_PARAGRAPHS).join("\n\n");
   // lockedContent supprimé — inutilisé (le contenu verrouillé est géré via isPremiumLocked)
 
   const handleComment = (e: React.FormEvent) => {
@@ -73,56 +95,6 @@ export default function ArticlePage() {
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
-    });
-  };
-
-  const renderContent = (text: string) => {
-    return text.split("\n\n").map((para, i) => {
-      if (para.startsWith("**") && para.endsWith("**")) {
-        return (
-          <h3 key={i} className="text-gray-900 font-bold mt-6 mb-2">
-            {para.slice(2, -2)}
-          </h3>
-        );
-      }
-      if (para.includes("**")) {
-        return (
-          <p key={i} className="text-gray-700 leading-relaxed mb-4">
-            {para.split(/(\*\*.*?\*\*)/).map((part, j) =>
-              part.startsWith("**") && part.endsWith("**") ? (
-                <strong key={j}>{part.slice(2, -2)}</strong>
-              ) : (
-                part
-              )
-            )}
-          </p>
-        );
-      }
-      if (para.startsWith("- ")) {
-        const items = para.split("\n").filter((l) => l.startsWith("- "));
-        return (
-          <ul key={i} className="list-disc list-inside space-y-1 mb-4 text-gray-700">
-            {items.map((item, j) => (
-              <li key={j}>{item.slice(2)}</li>
-            ))}
-          </ul>
-        );
-      }
-      if (/^\d+\./.test(para)) {
-        const items = para.split("\n").filter((l) => /^\d+\./.test(l));
-        return (
-          <ol key={i} className="list-decimal list-inside space-y-1 mb-4 text-gray-700">
-            {items.map((item, j) => (
-              <li key={j}>{item.replace(/^\d+\.\s*/, "")}</li>
-            ))}
-          </ol>
-        );
-      }
-      return (
-        <p key={i} className="text-gray-700 leading-relaxed mb-4">
-          {para}
-        </p>
-      );
     });
   };
 
@@ -271,7 +243,11 @@ export default function ArticlePage() {
                 <div className="prose-article text-sm sm:text-base">
                   {isPremiumLocked ? (
                     <>
-                      {renderContent(previewContent)}
+                      {sanityArticle.content && (
+                        <div className="line-clamp-6">
+                          <PortableText value={sanityArticle.content.slice(0, PREVIEW_PARAGRAPHS)} />
+                        </div>
+                      )}
                       {/* Premium gate */}
                       <div className="relative mt-6">
                         <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10" style={{ top: "-80px" }} />
@@ -280,8 +256,10 @@ export default function ArticlePage() {
                         </div>
                       </div>
                     </>
+                  ) : sanityArticle.content ? (
+                    <PortableText value={sanityArticle.content} />
                   ) : (
-                    renderContent(article.content)
+                    <p className="text-gray-500">Contenu non disponible.</p>
                   )}
                 </div>
 
@@ -377,7 +355,7 @@ export default function ArticlePage() {
                 <TrendingUp size={14} className="text-[#00A651]" /> Articles similaires
               </h3>
               <div className="space-y-4">
-                {(related.length > 0 ? related : ARTICLES.filter((a) => a.id !== article.id).slice(0, 4)).map((a) => (
+                {relatedArticles.filter((a) => a.id !== article.id).slice(0, 4).map((a) => (
                   <ArticleCard key={a.id} article={a} variant="compact" />
                 ))}
               </div>
@@ -409,7 +387,7 @@ export default function ArticlePage() {
             <h2 className="text-gray-900 font-bold text-lg">Autres articles dans {article.category}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {ARTICLES.filter((a) => a.id !== article.id).slice(0, 4).map((a) => (
+            {relatedArticles.filter((a) => a.id !== article.id).slice(0, 4).map((a) => (
               <ArticleCard key={a.id} article={a} variant="grid" />
             ))}
           </div>
