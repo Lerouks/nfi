@@ -19,4 +19,26 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  build: {
+    // Cibler les navigateurs modernes (réduit la taille du bundle)
+    target: 'es2018',
+    // Seuil d'avertissement pour les chunks volumineux (kB)
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Séparer les dépendances lourdes en chunks distincts pour un meilleur cache
+        manualChunks: {
+          // Framework React
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          // Sanity CMS client
+          'vendor-sanity': ['@sanity/client'],
+          // Supabase
+          'vendor-supabase': ['@supabase/supabase-js'],
+          // Graphiques Recharts
+          'vendor-recharts': ['recharts'],
+        },
+      },
+    },
+  },
 })

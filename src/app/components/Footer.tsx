@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router";
-import { Youtube, Mail, Phone, MapPin } from "lucide-react";
+import { Youtube, Mail, Phone, MapPin, Loader, CheckCircle2, AlertCircle } from "lucide-react";
+import { subscribeNewsletter } from "../../lib/supabase";
+import { analytics } from "../../lib/posthog";
+import { sendWelcomeEmail } from "../../lib/email";
 
 function TikTokIcon({ size = 16 }: { size?: number }) {
   return (
@@ -52,9 +56,97 @@ const SOCIAL_LINKS = [
   },
 ];
 
+function FooterNewsletter() {
+  const [email,   setEmail]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Enregistrement Supabase (fail gracieux si non configuré)
+      await subscribeNewsletter(trimmed).catch(() => {});
+      // 2. Analytics PostHog (toujours silencieux)
+      analytics.newsletterSignup(trimmed).catch(() => {});
+      // 3. Email de bienvenue (toujours silencieux)
+      sendWelcomeEmail(trimmed).catch(() => {});
+      // 4. Afficher le succès dans tous les cas
+      setSuccess(true);
+      setEmail("");
+    } catch (err) {
+      console.error("[Footer Newsletter]", err);
+      setError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="mt-5">
+        <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
+        <div className="flex items-center gap-2 text-green-400 text-xs py-2">
+          <CheckCircle2 size={14} aria-hidden="true" />
+          <span>Inscription confirmée ! Vérifiez votre email.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5" aria-label="Inscription à la newsletter">
+      <p className="text-xs text-gray-500 mb-2" id="footer-newsletter-label">
+        Newsletter quotidienne
+      </p>
+      <form
+        className="flex gap-2"
+        onSubmit={handleSubmit}
+        aria-labelledby="footer-newsletter-label"
+        noValidate
+      >
+        <label htmlFor="footer-email" className="sr-only">Votre adresse e-mail</label>
+        <input
+          id="footer-email"
+          type="email"
+          name="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Votre e-mail"
+          autoComplete="email"
+          required
+          disabled={loading}
+          className="flex-1 px-3 py-1.5 text-sm bg-white/10 border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651] disabled:opacity-50"
+          style={{ borderColor: "rgba(0,166,81,0.3)" }}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          aria-label="S'inscrire à la newsletter"
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-white font-medium rounded-lg transition hover:opacity-90 disabled:opacity-60 shrink-0"
+          style={{ background: "#00A651" }}
+        >
+          {loading
+            ? <Loader size={12} className="animate-spin" aria-hidden="true" />
+            : "S'inscrire"}
+        </button>
+      </form>
+      {error && (
+        <p className="flex items-center gap-1 text-red-400 text-xs mt-1.5" role="alert">
+          <AlertCircle size={11} aria-hidden="true" /> {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Footer() {
   return (
-    <footer className="bg-[#0D1B35] text-white">
+    <footer className="bg-[#0D1B35] text-white" role="contentinfo" aria-label="Pied de page NFI REPORT">
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
@@ -155,25 +247,7 @@ export function Footer() {
                 </a>
               </li>
             </ul>
-            {/* Newsletter mini */}
-            <div className="mt-5">
-              <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
-              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
-                <input
-                  type="email"
-                  placeholder="Votre e-mail"
-                  className="flex-1 px-3 py-1.5 text-sm bg-white/10 border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
-                  style={{ borderColor: "rgba(0,166,81,0.3)" }}
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 text-xs text-white font-medium rounded-lg transition hover:opacity-90"
-                  style={{ background: "#00A651" }}
-                >
-                  OK
-                </button>
-              </form>
-            </div>
+            <FooterNewsletter />
           </div>
         </div>
       </div>

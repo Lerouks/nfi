@@ -1,7 +1,8 @@
 import { Link } from "react-router";
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
-import { ARTICLES, CATEGORIES, TRENDING_TAGS, getFeaturedArticles, formatDate } from "../data/mockData";
+import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
+import { getAllArticles, getFeaturedArticles, toArticle } from "../../lib/sanity";
 import { ArticleCard } from "../components/ArticleCard";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -9,10 +10,22 @@ import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { BRVMChart, GDPChart, InvestmentChart } from "../components/FinancialChart";
 
 export default function Home() {
-  // Calculs dans le composant — pas au niveau module
-  const featured = useMemo(() => getFeaturedArticles(), []);
-  const latest   = useMemo(() => ARTICLES.slice(0, 6), []);
-  const popular  = useMemo(() => [...ARTICLES].sort((a, b) => b.views - a.views).slice(0, 4), []);
+  const [featured, setFeatured] = useState<Article[]>([]);
+  const [latest, setLatest]     = useState<Article[]>([]);
+  const [popular, setPopular]   = useState<Article[]>([]);
+
+  useEffect(() => {
+    getFeaturedArticles()
+      .then((data) => setFeatured(data.map(toArticle)))
+      .catch((err) => console.error('[Sanity] getFeaturedArticles error:', err));
+    getAllArticles()
+      .then((data) => {
+        const articles = data.map(toArticle);
+        setLatest(articles.slice(0, 6));
+        setPopular(articles.slice(0, 4));
+      })
+      .catch((err) => console.error('[Sanity] getAllArticles error:', err));
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">

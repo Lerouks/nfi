@@ -1,12 +1,12 @@
 import { useParams, Link } from "react-router";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight, Filter, Grid, List, SlidersHorizontal, TrendingUp
 } from "lucide-react";
 import {
-  ARTICLES, CATEGORIES, TRENDING_TAGS,
-  getArticlesByCategory, formatDate,
+  CATEGORIES, TRENDING_TAGS, formatDate, type Article,
 } from "../data/mockData";
+import { getArticlesByCategory, getAllArticles, toArticle } from "../../lib/sanity";
 import { ArticleCard } from "../components/ArticleCard";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -24,9 +24,20 @@ export default function SectionPage() {
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [filter, setFilter] = useState<FilterType>("all");
   const [page, setPage] = useState(1);
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
 
-  // Ref pour ignorer le premier rendu (évite le scroll automatique au chargement)
   const didMount = useRef(false);
+
+  useEffect(() => {
+    if (slug) {
+      getArticlesByCategory(slug).then((data) => {
+        const articles = data.map(toArticle);
+        setAllArticles(articles.length >= 3 ? articles : articles);
+      });
+    } else {
+      getAllArticles().then((data) => setAllArticles(data.map(toArticle)));
+    }
+  }, [slug]);
 
   useEffect(() => {
     if (!didMount.current) {
@@ -38,13 +49,9 @@ export default function SectionPage() {
   }, [filter, sortBy]);
 
   const category = CATEGORIES.find((c) => c.slug === slug);
-  const rawArticles = slug ? getArticlesByCategory(slug) : ARTICLES;
-
-  // If not enough articles, supplement with similar ones from all
-  const baseArticles = rawArticles.length >= 3 ? rawArticles : ARTICLES;
 
   // Filter
-  let filtered = baseArticles.filter((a) => {
+  let filtered = allArticles.filter((a) => {
     if (filter === "free") return !a.isPremium;
     if (filter === "premium") return a.isPremium;
     return true;
@@ -61,11 +68,7 @@ export default function SectionPage() {
   const displayed = filtered.slice(0, page * ITEMS_PER_PAGE);
   const hasMore = page < totalPages;
 
-  // Mémoïsé — évite le recalcul à chaque render
-  const popularArticles = useMemo(
-    () => [...ARTICLES].sort((a, b) => b.views - a.views).slice(0, 4),
-    []
-  );
+  const popularArticles = allArticles.slice(0, 4);
 
   if (!category && slug) {
     return (

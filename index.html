@@ -5,22 +5,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Sentry — Chargement CDN (capture automatique de toutes les erreurs JS) -->
-    <script
-      src="https://js.sentry-cdn.com/46d006686fbbd9af84d462e794440ff7.min.js"
-      crossorigin="anonymous"
-    ></script>
-
     <!-- Primary Meta -->
     <title>NFI REPORT - La référence financière et économique au Niger</title>
     <meta name="description" content="NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale." />
-    <meta name="keywords" content="Niger, finance, économie, BCEAO, UEMOA, Afrique, actualités économiques, investissement, marché, analyse" />
+    <meta name="keywords" content="Niger, finance, économie, BCEAO, UEMOA, Afrique, actualités économiques, investissement, marché, analyse, BRVM" />
     <meta name="author" content="NFI REPORT" />
     <meta name="robots" content="index, follow" />
+    <meta name="copyright" content="NFI REPORT 2026" />
+    <link rel="canonical" href="https://www.nfireport.com/" />
 
-    <!-- Favicon -->
+    <!-- Favicon & PWA -->
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0D1B35" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NFI REPORT" />
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
     <meta property="og:title" content="NFI REPORT - La référence financière au Niger" />
@@ -30,6 +32,7 @@
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="NFI REPORT — Niger Financial Insights" />
     <meta property="og:url" content="https://www.nfireport.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="NFI REPORT" />
@@ -38,19 +41,76 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@nfireport" />
+    <meta name="twitter:creator" content="@nfireport" />
     <meta name="twitter:title" content="NFI REPORT - La référence financière au Niger" />
     <meta name="twitter:description" content="Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger." />
     <meta name="twitter:image" content="https://www.nfireport.com/logoog.png" />
+    <meta name="twitter:image:alt" content="NFI REPORT — Niger Financial Insights" />
 
-    <!-- Theme Color (mobile browser top bar) -->
-    <meta name="theme-color" content="#0D1B35" />
+    <!-- Structured Data JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "NewsMediaOrganization",
+      "name": "NFI REPORT",
+      "alternateName": "Niger Financial Insights",
+      "url": "https://www.nfireport.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.nfireport.com/logo.png",
+        "width": 512,
+        "height": 512
+      },
+      "description": "La référence africaine en information économique et financière. Analyses indépendantes, données fiables, perspectives stratégiques.",
+      "sameAs": [
+        "https://www.tiktok.com/@nfireport",
+        "https://www.facebook.com/nfireport",
+        "https://www.instagram.com/nfireport",
+        "https://youtube.com/@nfireport"
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Niamey",
+        "addressCountry": "NE"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "contact@nfireport.com",
+        "telephone": "+227-98-54-38-37",
+        "contactType": "customer support",
+        "availableLanguage": "French"
+      }
+    }
+    </script>
 
-    <!-- Preconnect for performance -->
+    <!-- Performance : DNS prefetch & preconnect -->
+    <link rel="dns-prefetch" href="https://cdn.sanity.io" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.sanity.io" />
+
+    <!-- Sentry — defer pour ne pas bloquer le rendu initial -->
+    <script
+      src="https://js.sentry-cdn.com/46d006686fbbd9af84d462e794440ff7.min.js"
+      crossorigin="anonymous"
+      defer
+    ></script>
   </head>
 
   <body>
+    <!-- Lien d'évitement (skip nav) pour navigation clavier — WCAG 2.4.1 -->
+    <a
+      href="#main-content"
+      style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden"
+      onfocus="this.style.cssText='position:fixed;top:8px;left:8px;width:auto;height:auto;overflow:visible;z-index:9999;padding:8px 16px;background:#fff;color:#0D1B35;font-weight:600;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);text-decoration:none'"
+      onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden'"
+    >
+      Aller au contenu principal
+    </a>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
