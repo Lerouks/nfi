@@ -1,12 +1,16 @@
 import { createClient } from "@sanity/client";
 import imageUrlBuilder from "@sanity/image-url";
 
+const token = import.meta.env.VITE_SANITY_TOKEN as string | undefined;
+
 export const sanityClient = createClient({
   projectId: import.meta.env.VITE_SANITY_PROJECT_ID ?? "y1uifwk2",
   dataset: "production",
   apiVersion: "2024-01-01",
-  useCdn: true,
-  token: import.meta.env.VITE_SANITY_TOKEN,
+  useCdn: !token,       // CDN pour dataset public, API pour dataset privé avec token
+  ...(token ? { token } : {}),
+  perspective: "published",
+  stega: false,
 });
 
 const builder = imageUrlBuilder(sanityClient);

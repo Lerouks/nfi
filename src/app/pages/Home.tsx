@@ -13,6 +13,8 @@ export default function Home() {
   const [featured, setFeatured] = useState<Article[]>([]);
   const [latest, setLatest]     = useState<Article[]>([]);
   const [popular, setPopular]   = useState<Article[]>([]);
+  const [sanityError, setSanityError] = useState<string | null>(null);
+  const [sanityCount, setSanityCount] = useState<number | null>(null);
 
   useEffect(() => {
     getFeaturedArticles()
@@ -20,15 +22,27 @@ export default function Home() {
       .catch((err) => console.error('[Sanity] getFeaturedArticles error:', err));
     getAllArticles()
       .then((data) => {
+        setSanityCount(data.length);
         const articles = data.map(toArticle);
         setLatest(articles.slice(0, 6));
         setPopular(articles.slice(0, 4));
       })
-      .catch((err) => console.error('[Sanity] getAllArticles error:', err));
+      .catch((err) => {
+        console.error('[Sanity] getAllArticles error:', err);
+        setSanityError(err?.message ?? String(err));
+      });
   }, []);
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
+      {/* ── DEBUG SANITY (à supprimer après diagnostic) ── */}
+      {(sanityError || sanityCount !== null) && (
+        <div className={`text-xs px-4 py-2 text-center font-mono ${sanityError ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+          {sanityError
+            ? `❌ Sanity erreur : ${sanityError}`
+            : `✅ Sanity OK — ${sanityCount} article(s) reçu(s)`}
+        </div>
+      )}
       {/* ======================================================
           HERO SECTION
       ====================================================== */}
