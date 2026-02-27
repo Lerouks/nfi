@@ -1,5 +1,5 @@
 import { RouterProvider } from "react-router";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { router } from "./routes";
 
 // Clerk est chargé uniquement si une vraie clé est configurée
@@ -14,6 +14,10 @@ const ClerkApp = lazy(() => import("./ClerkApp"));
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
+  // Si Clerk échoue à charger (domaine custom non configuré, DNS absent, etc.)
+  // on bascule sur le RouterProvider sans auth pour ne pas bloquer toute l'app.
+  const [clerkFailed, setClerkFailed] = useState(false);
+
   useEffect(() => {
     import("../lib/posthog").then(({ initPostHog }) => initPostHog());
     import("../lib/sentry").then(({ initSentry }) => initSentry());
@@ -25,9 +29,26 @@ export default function App() {
         "color: #0D1B35; font-size: 12px;"
       );
     }
+
+    // Écoute les rejections de promesse non gérées liées à Clerk
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const msg: string = event.reason?.message ?? "";
+      const code: string = event.reason?.code ?? "";
+      if (
+        code === "failed_to_load_clerk_js" ||
+        msg.toLowerCase().includes("clerk")
+      ) {
+        event.preventDefault(); // supprime l'erreur dans la console
+        setClerkFailed(true);
+      }
+    };
+
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    return () =>
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
   }, []);
 
-  if (isClerkReady) {
+  if (isClerkReady && !clerkFailed) {
     return (
       <Suspense fallback={null}>
         <ClerkApp />
