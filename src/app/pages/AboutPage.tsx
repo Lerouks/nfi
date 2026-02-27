@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { Twitter, Linkedin, Mail, Target, Eye, Shield, Globe } from "lucide-react";
 import { NewsletterSignup } from "../components/NewsletterSignup";
+import { sendContactMessage } from "@/lib/supabase";
 import logoImg from "@/assets/logo";
 // ─── Équipe fondatrice ────────────────────────────────────────────────────────
 const FOUNDERS = [
@@ -23,6 +25,107 @@ const FOUNDERS = [
     accent: "#0D1B35",
   },
 ];
+
+type FormState = "idle" | "sending" | "success" | "error";
+
+function ContactForm() {
+  const [name, setName]       = useState("");
+  const [email, setEmail]     = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus]   = useState<FormState>("idle");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !subject || !message.trim()) return;
+    setStatus("sending");
+    const ok = await sendContactMessage(name.trim(), email.trim(), subject, message.trim());
+    setStatus(ok ? "success" : "error");
+    if (ok) {
+      setName(""); setEmail(""); setSubject(""); setMessage("");
+    }
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Nom complet</label>
+          <input
+            type="text"
+            placeholder="Votre nom"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
+            style={{ borderColor: "rgba(0,0,0,0.15)" }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Email</label>
+          <input
+            type="email"
+            placeholder="votre@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
+            style={{ borderColor: "rgba(0,0,0,0.15)" }}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">Sujet</label>
+        <select
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          required
+          className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] bg-white"
+          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+        >
+          <option value="">Choisir un sujet...</option>
+          <option value="publicite">Publicité</option>
+          <option value="partenariat">Partenariat</option>
+          <option value="recrutement">Recrutement</option>
+          <option value="redaction">Proposition d'article</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">Message</label>
+        <textarea
+          rows={4}
+          placeholder="Votre message..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          required
+          className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] resize-none"
+          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+        />
+      </div>
+
+      {status === "success" && (
+        <p className="text-sm text-[#00A651] font-medium">
+          Message envoyé ! Nous vous répondrons dans les plus brefs délais.
+        </p>
+      )}
+      {status === "error" && (
+        <p className="text-sm text-red-500 font-medium">
+          Une erreur s'est produite. Veuillez réessayer ou écrire directement à contact@nfireport.com.
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        className="px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90 disabled:opacity-60"
+        style={{ background: "#00A651" }}
+      >
+        {status === "sending" ? "Envoi en cours…" : "Envoyer le message"}
+      </button>
+    </form>
+  );
+}
 
 export default function AboutPage() {
   return (
@@ -209,45 +312,7 @@ export default function AboutPage() {
           {/* Contact form */}
           <div className="bg-white rounded-xl border p-6" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
             <h3 className="text-gray-900 font-semibold mb-4">Envoyez-nous un message</h3>
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Nom complet</label>
-                  <input type="text" placeholder="Votre nom"
-                    className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
-                    style={{ borderColor: "rgba(0,0,0,0.15)" }} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Email</label>
-                  <input type="email" placeholder="votre@email.com"
-                    className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
-                    style={{ borderColor: "rgba(0,0,0,0.15)" }} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Sujet</label>
-                <select className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] bg-white"
-                  style={{ borderColor: "rgba(0,0,0,0.15)" }}>
-                  <option value="">Choisir un sujet...</option>
-                  <option value="publicite">Publicité</option>
-                  <option value="partenariat">Partenariat</option>
-                  <option value="recrutement">Recrutement</option>
-                  <option value="redaction">Proposition d'article</option>
-                  <option value="autre">Autre</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Message</label>
-                <textarea rows={4} placeholder="Votre message..."
-                  className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] resize-none"
-                  style={{ borderColor: "rgba(0,0,0,0.15)" }} />
-              </div>
-              <button type="submit"
-                className="px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90"
-                style={{ background: "#00A651" }}>
-                Envoyer le message
-              </button>
-            </form>
+            <ContactForm />
           </div>
         </div>
       </section>

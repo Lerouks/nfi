@@ -94,3 +94,25 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION public.increment_comment_likes(UUID) TO anon, authenticated;
+
+-- ─── 5. Table contact_messages ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT        NOT NULL,
+  email      TEXT        NOT NULL,
+  subject    TEXT        NOT NULL,
+  message    TEXT        NOT NULL CHECK (char_length(message) BETWEEN 1 AND 5000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+-- Tout le monde peut insérer un message (formulaire de contact public)
+CREATE POLICY "contact_messages_insert"
+  ON public.contact_messages FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+-- Seul le service role (dashboard Supabase) peut lire les messages
+-- Aucune policy SELECT pour anon/authenticated = données protégées côté client
