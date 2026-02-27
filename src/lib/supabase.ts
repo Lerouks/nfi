@@ -84,8 +84,10 @@ export type Article = {
 
 export type Comment = {
   id: string;
-  article_id: string;
+  article_slug: string;
   user_id: string;
+  author_name: string;
+  author_avatar: string | null;
   content: string;
   likes: number;
   created_at: string;
@@ -142,9 +144,66 @@ export async function isNewsletterSubscribed(email: string): Promise<boolean> {
 
 // ─── Articles ─────────────────────────────────────────────────────────────────
 
-/** Incrémente les vues d'un article */
+/** Incrémente les vues d'un article via RPC Supabase */
 export async function incrementArticleViews(slug: string): Promise<void> {
   await safeQuery(() =>
     supabase.rpc("increment_article_views", { article_slug: slug })
+  );
+}
+
+/** Récupère le nombre de vues réel d'un article */
+export async function getArticleViews(slug: string): Promise<number> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("article_views")
+      .select("views")
+      .eq("article_slug", slug)
+      .single()
+  );
+  return (data as { views: number } | null)?.views ?? 0;
+}
+
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+/** Récupère tous les commentaires d'un article, du plus récent au plus ancien */
+export async function getComments(articleSlug: string): Promise<Comment[]> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("comments")
+      .select("*")
+      .eq("article_slug", articleSlug)
+      .order("created_at", { ascending: false })
+  );
+  return (data as Comment[] | null) ?? [];
+}
+
+/** Ajoute un commentaire et retourne le commentaire créé */
+export async function addComment(
+  articleSlug: string,
+  userId: string,
+  authorName: string,
+  authorAvatar: string | null,
+  content: string
+): Promise<Comment | null> {
+  return safeQuery(() =>
+    supabase
+      .from("comments")
+      .insert({
+        article_slug: articleSlug,
+        user_id: userId,
+        author_name: authorName,
+        author_avatar: authorAvatar,
+        content,
+        likes: 0,
+      })
+      .select()
+      .single()
+  );
+}
+
+/** Incrémente le like d'un commentaire */
+export async function likeComment(commentId: string): Promise<void> {
+  await safeQuery(() =>
+    supabase.rpc("increment_comment_likes", { comment_id: commentId })
   );
 }
