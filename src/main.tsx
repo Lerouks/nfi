@@ -1,7 +1,9 @@
 
-  import { createRoot } from "react-dom/client";
-  import App from "./app/App.tsx";
-  import "./styles/index.css";
+import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
+import App from "./app/App.tsx";
+import "./styles/index.css";
 
-  createRoot(document.getElementById("root")!).render(<App />);
-  
+const container = document.getElementById("root")!;
+flushSync(() => createRoot(container).render(<App />));
+container.style.visibility = "";
