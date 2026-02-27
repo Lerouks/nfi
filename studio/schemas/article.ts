@@ -40,6 +40,7 @@ export default {
       title: "Catégorie",
       type: "string",
       options: {
+        layout: "radio",
         list: [
           { title: "Économie Africaine",  value: "economie-africaine" },
           { title: "Économie Mondiale",   value: "economie-mondiale" },
