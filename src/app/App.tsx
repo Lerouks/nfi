@@ -2,7 +2,6 @@ import { RouterProvider } from "react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { router } from "./routes";
 
-// Clerk est chargé uniquement si une vraie clé est configurée
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 const isClerkReady =
   typeof clerkKey === "string" &&
@@ -12,11 +11,27 @@ const isClerkReady =
 
 const ClerkApp = lazy(() => import("./ClerkApp"));
 
+/**
+ * Decode the Frontend API domain embedded in a Clerk publishable key.
+ * Format: pk_(live|test)_BASE64("domain$")
+ */
+function clerkDomain(key: string): string | null {
+  try {
+    const b64 = key.replace(/^pk_(live|test)_/, "");
+    return atob(b64).replace(/\$$/, "");
+  } catch {
+    return null;
+  }
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  // Si Clerk échoue à charger (domaine custom non configuré, DNS absent, etc.)
-  // on bascule sur le RouterProvider sans auth pour ne pas bloquer toute l'app.
-  const [clerkFailed, setClerkFailed] = useState(false);
+  /**
+   * null  → vérification en cours (on affiche RouterProvider en attendant)
+   * true  → domaine Clerk accessible → charge ClerkApp
+   * false → domaine inaccessible → reste sur RouterProvider sans auth
+   */
+  const [clerkOk, setClerkOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     import("../lib/posthog").then(({ initPostHog }) => initPostHog());
@@ -30,25 +45,40 @@ export default function App() {
       );
     }
 
-    // Écoute les rejections de promesse non gérées liées à Clerk
-    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const msg: string = event.reason?.message ?? "";
-      const code: string = event.reason?.code ?? "";
-      if (
-        code === "failed_to_load_clerk_js" ||
-        msg.toLowerCase().includes("clerk")
-      ) {
-        event.preventDefault(); // supprime l'erreur dans la console
-        setClerkFailed(true);
-      }
-    };
+    if (!isClerkReady || !clerkKey) {
+      setClerkOk(false);
+      return;
+    }
 
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
-    return () =>
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    const domain = clerkDomain(clerkKey);
+    if (!domain) {
+      setClerkOk(false);
+      return;
+    }
+
+    // Sonde rapide (2 s max) pour vérifier si le domaine Clerk est joignable.
+    // mode "no-cors" : échoue sur erreur DNS/réseau, réussit si le serveur répond.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2000);
+
+    fetch(`https://${domain}/`, { signal: ctrl.signal, mode: "no-cors", cache: "no-store" })
+      .then(() => {
+        clearTimeout(timer);
+        setClerkOk(true);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        setClerkOk(false);
+      });
+
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, []);
 
-  if (isClerkReady && !clerkFailed) {
+  // Clerk accessible → charge ClerkApp (avec auth complète)
+  if (clerkOk === true) {
     return (
       <Suspense fallback={null}>
         <ClerkApp />
@@ -56,5 +86,6 @@ export default function App() {
     );
   }
 
+  // En attente de la sonde OU domaine inaccessible → site sans auth (articles visibles)
   return <RouterProvider router={router} />;
 }
