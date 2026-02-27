@@ -3,12 +3,13 @@ import { Link, useNavigate, useLocation } from "react-router";
 import {
   Globe, TrendingUp, MapPin, BarChart2,
   ChevronDown, Search, X, Star, Menu,
-  Wrench,
+  Wrench, Bookmark,
 } from "lucide-react";
 import { MARKET_DATA, searchArticles } from "../data/mockData";
 import logoImg from "@/assets/logo";
 import { ClerkNavAuth, ClerkMobileAuth } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
+import { useSavedArticles } from "../../lib/savedArticles";
 
 // ─── Clerk disponible si la clé est configurée ───────────────────────────────
 const CLERK_READY =
@@ -118,6 +119,7 @@ export function Navbar() {
   const [searchResults, setSearchResults] = useState<ReturnType<typeof searchArticles>>([]);
   const [scrolled,     setScrolled]     = useState(false);
 
+  const { savedArticles } = useSavedArticles();
   const searchRef  = useRef<HTMLDivElement>(null);
   const navigate   = useNavigate();
   const location   = useLocation();
@@ -267,6 +269,21 @@ export function Navbar() {
               >
                 <Search size={18} />
               </button>
+
+              {/* Favoris */}
+              <Link
+                to="/profile?tab=saved"
+                className="relative p-2 rounded-full hover:bg-gray-100 transition text-gray-600 hover:text-[#0D1B35]"
+                aria-label="Articles sauvegardés"
+              >
+                <Bookmark size={18} />
+                {savedArticles.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[9px] font-bold text-white rounded-full flex items-center justify-center"
+                    style={{ background: "#00A651" }}>
+                    {savedArticles.length > 9 ? "9+" : savedArticles.length}
+                  </span>
+                )}
+              </Link>
 
               {/* Notifications */}
               <NotificationPanel />

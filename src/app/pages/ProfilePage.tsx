@@ -8,6 +8,8 @@ import {
 import { MOCK_USER, SUBSCRIPTION_PLANS, formatDate } from "../data/mockData";
 import { ArticleCard } from "../components/ArticleCard";
 import { SignInButton, useUser } from "@clerk/clerk-react";
+import { useSavedArticles } from "../../lib/savedArticles";
+import { useSearchParams } from "react-router";
 
 // ─── Vérification Clerk ───────────────────────────────────────────────────────
 const CLERK_READY =
@@ -93,7 +95,9 @@ function ProfileContent({
   user: typeof MOCK_USER;
   isLoggedIn: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get("tab") as Tab) || "overview");
+  const { savedArticles } = useSavedArticles();
 
   // ── Préférences de notifications (état mutable) ──────────────────────────
   const [notifPrefs, setNotifPrefs] = useState([
@@ -186,7 +190,7 @@ function ProfileContent({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "Articles lus", value: user.readArticles, Icon: Eye },
-                  { label: "Articles sauvegardés", value: user.savedArticles.length, Icon: BookOpen },
+                  { label: "Articles sauvegardés", value: savedArticles.length, Icon: BookOpen },
                   { label: "Commentaires", value: 12, Icon: Bell },
                   { label: "Jours membres", value: Math.floor((Date.now() - new Date(user.joinedAt).getTime()) / 86400000), Icon: Calendar },
                 ].map(({ label, value, Icon }) => (
@@ -273,10 +277,10 @@ function ProfileContent({
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-gray-900 font-semibold flex items-center gap-2">
                 <BookOpen size={16} className="text-[#00A651]" />
-                Articles sauvegardés ({user.savedArticles.length})
+                Articles sauvegardés ({savedArticles.length})
               </h2>
             </div>
-            {user.savedArticles.length === 0 ? (
+            {savedArticles.length === 0 ? (
               <div className="bg-white rounded-xl border p-10 text-center" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
                 <BookOpen size={32} className="text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500 mb-4">Vous n'avez pas encore sauvegardé d'articles.</p>
@@ -286,7 +290,7 @@ function ProfileContent({
               </div>
             ) : (
               <div className="space-y-3">
-                {user.savedArticles.map((article) => (
+                {savedArticles.map((article) => (
                   <ArticleCard key={article.id} article={article} variant="horizontal" showExcerpt />
                 ))}
               </div>

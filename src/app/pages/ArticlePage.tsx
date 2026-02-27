@@ -19,6 +19,7 @@ import {
   incrementArticleViews, getArticleViews,
   type Comment as SupabaseComment,
 } from "../../lib/supabase";
+import { useSavedArticles } from "../../lib/savedArticles";
 import { ArticleCard } from "../components/ArticleCard";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -51,7 +52,7 @@ export default function ArticlePage() {
   const [sanityArticle, setSanityArticle] = useState<SanityArticle | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const { isSaved, toggle } = useSavedArticles();
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<DisplayComment[]>([]);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
@@ -287,11 +288,11 @@ export default function ArticlePage() {
                       {copied ? <Check size={15} /> : <Copy size={15} />}
                     </button>
                     <button
-                      onClick={() => setSaved(!saved)}
+                      onClick={() => toggle(article)}
                       className="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-500"
-                      aria-label={saved ? "Retirer des favoris" : "Sauvegarder"}
+                      aria-label={isSaved(article.slug) ? "Retirer des favoris" : "Sauvegarder"}
                     >
-                      {saved ? <BookmarkCheck size={15} className="text-[#00A651]" /> : <Bookmark size={15} className="text-gray-500 hover:text-[#C9A84C]" />}
+                      {isSaved(article.slug) ? <BookmarkCheck size={15} className="text-[#00A651]" /> : <Bookmark size={15} className="text-gray-500 hover:text-[#C9A84C]" />}
                     </button>
                   </div>
                 </div>
