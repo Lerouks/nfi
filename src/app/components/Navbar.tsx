@@ -10,11 +10,7 @@ import logoImg from "@/assets/logo";
 import { ClerkNavAuth, ClerkMobileAuth } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
 import { useSavedArticles } from "../../lib/savedArticles";
-
-// ─── Clerk disponible si la clé est configurée ───────────────────────────────
-const CLERK_READY =
-  typeof import.meta.env.VITE_CLERK_PUBLISHABLE_KEY === "string" &&
-  (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string).startsWith("pk_");
+import { useClerkActive } from "../../lib/clerkActive";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,6 +116,7 @@ export function Navbar() {
   const [scrolled,     setScrolled]     = useState(false);
 
   const { savedArticles } = useSavedArticles();
+  const clerkActive = useClerkActive();
   const searchRef  = useRef<HTMLDivElement>(null);
   const navigate   = useNavigate();
   const location   = useLocation();
@@ -298,7 +295,7 @@ export function Navbar() {
               </Link>
 
               {/* User menu */}
-              {CLERK_READY ? (
+              {clerkActive ? (
                 <ClerkNavAuth />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-[#0D1B35] flex items-center justify-center opacity-40 cursor-not-allowed" title="Auth non configurée" />
@@ -424,7 +421,7 @@ export function Navbar() {
             </Link>
 
             {/* Auth mobile — Clerk si dispo */}
-            {CLERK_READY && <ClerkMobileAuth onClose={() => setMobileOpen(false)} />}
+            {clerkActive && <ClerkMobileAuth onClose={() => setMobileOpen(false)} />}
 
             <div className="pt-2">
               <Link
