@@ -269,7 +269,7 @@ export default function Home() {
             {/* Focus Niger highlight */}
             <div className="rounded-xl overflow-hidden relative group">
               <img
-                src="https://images.unsplash.com/photo-1761143518967-4f9f4f65a955?w=400&h=250&fit=crop"
+                src="/focus-niger.jpg"
                 alt="Focus Niger"
                 className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
