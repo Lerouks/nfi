@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { PortableText } from "@portabletext/react";
 import {
-  COMMENTS, formatDate, type Article, type Comment as MockComment,
+  formatDate, type Article,
 } from "../data/mockData";
 import {
   getArticleBySlug, getAllArticles, toArticle,
@@ -45,17 +45,6 @@ function toDisplayComment(c: SupabaseComment): DisplayComment {
   };
 }
 
-function mockToDisplay(c: MockComment): DisplayComment {
-  return {
-    id: c.id,
-    author: c.author,
-    avatar: c.avatar,
-    content: c.content,
-    date: c.date,
-    likes: c.likes,
-  };
-}
-
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
   const { user, isSignedIn } = useUser();
@@ -64,7 +53,7 @@ export default function ArticlePage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [comment, setComment] = useState("");
-  const [comments, setComments] = useState<DisplayComment[]>(COMMENTS.map(mockToDisplay));
+  const [comments, setComments] = useState<DisplayComment[]>([]);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [realViews, setRealViews] = useState<number | null>(null);
@@ -89,13 +78,9 @@ export default function ArticlePage() {
     });
 
     // Charger les vrais commentaires depuis Supabase
+    setComments([]);
     getComments(slug).then((data) => {
-      if (data.length > 0) {
-        setComments(data.map(toDisplayComment));
-      } else {
-        // Fallback : mock si Supabase vide ou non configuré
-        setComments(COMMENTS.map(mockToDisplay));
-      }
+      setComments(data.map(toDisplayComment));
     });
   }, [slug]);
 
