@@ -208,6 +208,21 @@ export async function likeComment(commentId: string): Promise<void> {
   );
 }
 
+// ─── Contact ──────────────────────────────────────────────────────────────────
+
+/** Enregistre un message de contact en base */
+export async function sendContactMessage(
+  name: string,
+  email: string,
+  subject: string,
+  message: string
+): Promise<boolean> {
+  const result = await safeQuery(() =>
+    supabase.from("contact_messages").insert({ name, email, subject, message })
+  );
+  return result !== null;
+}
+
 /** Retourne les vues de tous les articles (pour trier "Les plus lus") */
 export async function getAllArticleViews(): Promise<Record<string, number>> {
   const data = await safeQuery(() =>
