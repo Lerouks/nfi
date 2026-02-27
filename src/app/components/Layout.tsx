@@ -2,6 +2,7 @@ import { useEffect, useRef, Suspense } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
+import { SavedArticlesProvider } from "../../lib/savedArticles";
 
 const SESSION_KEY = "nfi_last_path";
 
@@ -60,16 +61,18 @@ function PageLoader() {
 
 export function Layout() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <PersistRoute />
-      <ScrollToTop />
-      <Navbar />
-      <main id="main-content" className="flex-1" role="main">
-        <Suspense fallback={<PageLoader />}>
-          <Outlet />
-        </Suspense>
-      </main>
-      <Footer />
-    </div>
+    <SavedArticlesProvider>
+      <div className="min-h-screen flex flex-col">
+        <PersistRoute />
+        <ScrollToTop />
+        <Navbar />
+        <main id="main-content" className="flex-1" role="main">
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
+        </main>
+        <Footer />
+      </div>
+    </SavedArticlesProvider>
   );
 }

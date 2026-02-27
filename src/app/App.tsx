@@ -1,7 +1,6 @@
 import { RouterProvider } from "react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { router } from "./routes";
-import { SavedArticlesProvider } from "../lib/savedArticles";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 const isClerkReady =
@@ -81,18 +80,12 @@ export default function App() {
   // Clerk accessible → charge ClerkApp (avec auth complète)
   if (clerkOk === true) {
     return (
-      <SavedArticlesProvider>
-        <Suspense fallback={null}>
-          <ClerkApp />
-        </Suspense>
-      </SavedArticlesProvider>
+      <Suspense fallback={null}>
+        <ClerkApp />
+      </Suspense>
     );
   }
 
   // En attente de la sonde OU domaine inaccessible → site sans auth (articles visibles)
-  return (
-    <SavedArticlesProvider>
-      <RouterProvider router={router} />
-    </SavedArticlesProvider>
-  );
+  return <RouterProvider router={router} />;
 }
