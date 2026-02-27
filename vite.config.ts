@@ -1,7 +1,20 @@
 import { defineConfig } from 'vite'
 import path from 'path'
+import fs from 'fs'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+
+// Plugin : copie index.html → 404.html dans le dist.
+// Quand le serveur ne trouve pas /article/slug, il sert 404.html
+// qui charge le SPA et React Router gère la route côté client.
+const spa404Fallback = {
+  name: 'spa-404-fallback',
+  closeBundle() {
+    const src = path.resolve(__dirname, 'dist/index.html')
+    const dst = path.resolve(__dirname, 'dist/404.html')
+    if (fs.existsSync(src)) fs.copyFileSync(src, dst)
+  },
+}
 
 export default defineConfig({
   plugins: [
@@ -9,6 +22,7 @@ export default defineConfig({
     // Tailwind is not being actively used – do not remove them
     react(),
     tailwindcss(),
+    spa404Fallback,
   ],
   resolve: {
     alias: {
