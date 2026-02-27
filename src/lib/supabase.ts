@@ -217,10 +217,15 @@ export async function sendContactMessage(
   subject: string,
   message: string
 ): Promise<boolean> {
-  const result = await safeQuery(() =>
-    supabase.from("contact_messages").insert({ name, email, subject, message })
-  );
-  return result !== null;
+  if (!SUPABASE_READY) return false;
+  try {
+    const { error } = await supabase
+      .from("contact_messages")
+      .insert({ name, email, subject, message });
+    return error === null;
+  } catch {
+    return false;
+  }
 }
 
 /** Retourne les vues de tous les articles (pour trier "Les plus lus") */
