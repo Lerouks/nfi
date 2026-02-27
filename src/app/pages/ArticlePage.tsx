@@ -1,33 +1,74 @@
 import { useParams, Link } from "react-router";
 import { useState, useEffect } from "react";
+import { useUser, SignInButton } from "@clerk/clerk-react";
 import {
   Clock, Eye, MessageCircle, Bookmark, BookmarkCheck,
   ChevronRight, Twitter, Linkedin, Facebook, Lock,
-  ThumbsUp, Send, TrendingUp, Copy, Check,
+  ThumbsUp, Send, TrendingUp, Copy, Check, LogIn,
 } from "lucide-react";
 import { PortableText } from "@portabletext/react";
 import {
-  COMMENTS, formatDate, type Article,
+  COMMENTS, formatDate, type Article, type Comment as MockComment,
 } from "../data/mockData";
 import {
   getArticleBySlug, getAllArticles, toArticle,
   type SanityArticle,
 } from "../../lib/sanity";
+import {
+  getComments, addComment, likeComment,
+  incrementArticleViews, getArticleViews,
+  type Comment as SupabaseComment,
+} from "../../lib/supabase";
 import { ArticleCard } from "../components/ArticleCard";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MarketOverview } from "../components/MarketTicker";
 
+// Type unifié pour l'affichage des commentaires (Supabase ou mock)
+type DisplayComment = {
+  id: string;
+  author: string;
+  avatar: string | null;
+  content: string;
+  date: string;
+  likes: number;
+};
+
+function toDisplayComment(c: SupabaseComment): DisplayComment {
+  return {
+    id: c.id,
+    author: c.author_name,
+    avatar: c.author_avatar,
+    content: c.content,
+    date: c.created_at,
+    likes: c.likes,
+  };
+}
+
+function mockToDisplay(c: MockComment): DisplayComment {
+  return {
+    id: c.id,
+    author: c.author,
+    avatar: c.avatar,
+    content: c.content,
+    date: c.date,
+    likes: c.likes,
+  };
+}
+
 export default function ArticlePage() {
   const { slug } = useParams<{ slug: string }>();
+  const { user, isSignedIn } = useUser();
   const [sanityArticle, setSanityArticle] = useState<SanityArticle | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [comment, setComment] = useState("");
-  const [comments, setComments] = useState(COMMENTS);
+  const [comments, setComments] = useState<DisplayComment[]>(COMMENTS.map(mockToDisplay));
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [realViews, setRealViews] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -38,6 +79,23 @@ export default function ArticlePage() {
     });
     getAllArticles().then((data) => {
       setRelatedArticles(data.slice(0, 4).map(toArticle));
+    });
+
+    // Incrémenter les vues + charger le vrai nombre
+    incrementArticleViews(slug).then(() => {
+      getArticleViews(slug).then((v) => {
+        if (v > 0) setRealViews(v);
+      });
+    });
+
+    // Charger les vrais commentaires depuis Supabase
+    getComments(slug).then((data) => {
+      if (data.length > 0) {
+        setComments(data.map(toDisplayComment));
+      } else {
+        // Fallback : mock si Supabase vide ou non configuré
+        setComments(COMMENTS.map(mockToDisplay));
+      }
     });
   }, [slug]);
 
@@ -72,28 +130,48 @@ export default function ArticlePage() {
   const PREVIEW_PARAGRAPHS = 2;
   // lockedContent supprimé — inutilisé (le contenu verrouillé est géré via isPremiumLocked)
 
-  const handleComment = (e: React.FormEvent) => {
+  const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!comment.trim()) return;
-    setComments([
-      {
-        id: `c${Date.now()}`,
-        author: "Vous",
-        avatar: "https://images.unsplash.com/photo-1731093714827-ba0353e09bfb?w=50&h=50&fit=crop&crop=face",
-        content: comment,
-        date: new Date().toISOString(),
-        likes: 0,
-      },
-      ...comments,
-    ]);
+    if (!comment.trim() || !slug) return;
+
+    const authorName = user?.fullName ?? user?.firstName ?? "Anonyme";
+    const authorAvatar = user?.imageUrl ?? null;
+    const userId = user?.id ?? "anonymous";
+
+    // Optimistic update
+    const optimistic: DisplayComment = {
+      id: `c${Date.now()}`,
+      author: authorName,
+      avatar: authorAvatar,
+      content: comment,
+      date: new Date().toISOString(),
+      likes: 0,
+    };
+    setComments((prev) => [optimistic, ...prev]);
     setComment("");
+
+    // Sauvegarde en base
+    setSubmitting(true);
+    const saved = await addComment(slug, userId, authorName, authorAvatar, comment.trim());
+    setSubmitting(false);
+
+    if (saved) {
+      // Remplacer l'optimistic par la vraie entrée DB
+      setComments((prev) =>
+        prev.map((c) => (c.id === optimistic.id ? toDisplayComment(saved) : c))
+      );
+    }
   };
 
   const toggleLike = (id: string) => {
     setLikedComments((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        likeComment(id); // Persiste le like en DB
+      }
       return next;
     });
   };
@@ -183,8 +261,8 @@ export default function ArticlePage() {
                   <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                     <span>{formatDate(article.publishedAt)}</span>
                     <span className="flex items-center gap-1"><Clock size={11} /> {article.readTime} min</span>
-                    <span className="flex items-center gap-1"><Eye size={11} /> {article.views.toLocaleString("fr-FR")} vues</span>
-                    <span className="flex items-center gap-1"><MessageCircle size={11} /> {article.comments}</span>
+                    <span className="flex items-center gap-1"><Eye size={11} /> {(realViews ?? article.views).toLocaleString("fr-FR")} vues</span>
+                    <span className="flex items-center gap-1"><MessageCircle size={11} /> {comments.length}</span>
                   </div>
                   <div className="flex items-center gap-1 ml-auto">
                     {/* Share buttons — vrais liens */}
@@ -297,50 +375,83 @@ export default function ArticlePage() {
                 Commentaires ({comments.length})
               </h3>
 
-              {/* Comment form */}
-              <form onSubmit={handleComment} className="mb-6">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Partagez votre analyse ou votre point de vue..."
-                  rows={3}
-                  className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] resize-none"
-                  style={{ borderColor: "rgba(0,0,0,0.15)" }}
-                />
-                <div className="flex justify-end mt-2">
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-5 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90"
-                    style={{ background: "#C9A84C" }}>
-                    <Send size={13} /> Publier
-                  </button>
+              {/* Comment form — connecté ou invitation à se connecter */}
+              {isSignedIn ? (
+                <form onSubmit={handleComment} className="mb-6">
+                  <div className="flex items-start gap-3">
+                    {user?.imageUrl && (
+                      <img src={user.imageUrl} alt={user.fullName ?? "Vous"}
+                        className="w-9 h-9 rounded-full object-cover shrink-0 mt-1" />
+                    )}
+                    <div className="flex-1">
+                      <textarea
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        placeholder="Partagez votre analyse ou votre point de vue..."
+                        rows={3}
+                        className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] resize-none"
+                        style={{ borderColor: "rgba(0,0,0,0.15)" }}
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          type="submit"
+                          disabled={submitting || !comment.trim()}
+                          className="flex items-center gap-2 px-5 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90 disabled:opacity-50"
+                          style={{ background: "#C9A84C" }}>
+                          <Send size={13} /> {submitting ? "Envoi…" : "Publier"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="mb-6 flex items-center gap-4 p-4 rounded-xl bg-gray-50 border" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                  <LogIn size={18} className="text-[#00A651] shrink-0" />
+                  <p className="text-sm text-gray-600 flex-1">
+                    Connectez-vous pour laisser un commentaire.
+                  </p>
+                  <SignInButton mode="modal">
+                    <button className="px-4 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90"
+                      style={{ background: "#00A651" }}>
+                      Se connecter
+                    </button>
+                  </SignInButton>
                 </div>
-              </form>
+              )}
 
               {/* Comments list */}
               <div className="space-y-5">
-                {comments.map((c) => (
-                  <div key={c.id} className="flex items-start gap-3">
-                    <img src={c.avatar} alt={c.author} className="w-9 h-9 rounded-full object-cover shrink-0" loading="lazy" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-900">{c.author}</span>
-                        <span className="text-xs text-gray-400">{formatDate(c.date)}</span>
+                {comments.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Soyez le premier à commenter cet article.</p>
+                ) : (
+                  comments.map((c) => (
+                    <div key={c.id} className="flex items-start gap-3">
+                      {c.avatar ? (
+                        <img src={c.avatar} alt={c.author} className="w-9 h-9 rounded-full object-cover shrink-0" loading="lazy" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-[#00A651]/10 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-semibold text-[#00A651]">{c.author.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-gray-900">{c.author}</span>
+                          <span className="text-xs text-gray-400">{formatDate(c.date)}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{c.content}</p>
+                        <button
+                          onClick={() => toggleLike(c.id)}
+                          className={`flex items-center gap-1.5 mt-2 text-xs transition-colors ${
+                            likedComments.has(c.id) ? "text-[#C9A84C]" : "text-gray-400 hover:text-gray-600"
+                          }`}
+                        >
+                          <ThumbsUp size={12} />
+                          {c.likes + (likedComments.has(c.id) ? 1 : 0)}
+                        </button>
                       </div>
-                      <p className="text-sm text-gray-700 leading-relaxed">{c.content}</p>
-                      <button
-                        onClick={() => toggleLike(c.id)}
-                        className={`flex items-center gap-1.5 mt-2 text-xs transition-colors ${
-                          likedComments.has(c.id) ? "text-[#00A651]" : "text-gray-400 hover:text-gray-600"
-                        }`}
-                        style={likedComments.has(c.id) ? { color: "#C9A84C" } : {}}
-                      >
-                        <ThumbsUp size={12} />
-                        {c.likes + (likedComments.has(c.id) ? 1 : 0)}
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </article>
