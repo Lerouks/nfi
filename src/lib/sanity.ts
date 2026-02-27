@@ -5,7 +5,7 @@ export const sanityClient = createClient({
   projectId: import.meta.env.VITE_SANITY_PROJECT_ID ?? "y1uifwk2",
   dataset: "production",
   apiVersion: "2024-01-01",
-  useCdn: true,
+  useCdn: false,
 });
 
 const builder = imageUrlBuilder(sanityClient);
@@ -77,7 +77,7 @@ export function toArticle(a: SanityArticle) {
   return {
     id: a._id,
     title: a.title,
-    slug: a.slug.current,
+    slug: a.slug?.current ?? '',
     excerpt: a.excerpt,
     content: "",
     cover: a.cover ? urlFor(a.cover).width(800).url() : "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&fit=crop",
