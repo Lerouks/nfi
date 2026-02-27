@@ -182,7 +182,7 @@ export function Navbar() {
   return (
     <>
       {/* ── Market Ticker ─────────────────────────────────────── */}
-      <div className="bg-[#0D1B35] text-white py-1.5 overflow-hidden relative">
+      <div className="bg-[#0D1B35] text-white py-1.5 overflow-hidden relative" aria-hidden="true" role="presentation">
         <div
           className="absolute left-0 top-0 h-full flex items-center z-10 px-3"
           style={{ background: "#00A651" }}
@@ -199,6 +199,7 @@ export function Navbar() {
       <header
         className={`sticky top-0 z-50 bg-white border-b transition-shadow ${scrolled ? "shadow-md" : "shadow-sm"}`}
         style={{ borderBottomColor: "rgba(0,0,0,0.08)" }}
+        role="banner"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -227,9 +228,12 @@ export function Navbar() {
                 <button
                   className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg hover:bg-gray-50 transition-colors ${sectionsOpen ? "text-[#00A651]" : "text-gray-700"}`}
                   onMouseEnter={() => setSectionsOpen(true)}
+                  aria-haspopup="true"
+                  aria-expanded={sectionsOpen}
+                  aria-label="Sections — ouvrir le sous-menu"
                 >
                   Sections
-                  <ChevronDown size={14} className={`transition-transform ${sectionsOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown size={14} className={`transition-transform ${sectionsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </button>
                 {sectionsOpen && (
                   <div className="absolute top-full left-0 mt-1 w-60 bg-white rounded-xl shadow-xl border py-2 z-50" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
@@ -286,9 +290,12 @@ export function Navbar() {
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-menu"
                 className="p-2 rounded-full hover:bg-gray-100 transition text-gray-600 md:hidden"
               >
-                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+                {mobileOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -372,7 +379,7 @@ export function Navbar() {
 
         {/* ── Mobile Menu ───────────────────────────────────────── */}
         {mobileOpen && (
-          <div className="md:hidden border-t bg-white px-4 py-4 space-y-1">
+          <div id="mobile-menu" className="md:hidden border-t bg-white px-4 py-4 space-y-1" role="navigation" aria-label="Menu mobile">
             <Link to="/" className="block px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
               Accueil
             </Link>

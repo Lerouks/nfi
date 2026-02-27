@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Bloquer les profils utilisateurs (données privées)
+Disallow: /profile
+
+# Bloquer les paramètres de recherche pour éviter le contenu dupliqué
+Disallow: /*?q=
+
+Sitemap: https://www.nfireport.com/sitemap.xml

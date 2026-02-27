@@ -1,0 +1,23 @@
+{
+  "name": "NFI REPORT — Niger Financial Insights",
+  "short_name": "NFI REPORT",
+  "description": "Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D1B35",
+  "theme_color": "#0D1B35",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["news", "finance", "business"]
+}

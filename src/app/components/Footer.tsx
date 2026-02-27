@@ -54,7 +54,7 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="bg-[#0D1B35] text-white">
+    <footer className="bg-[#0D1B35] text-white" role="contentinfo" aria-label="Pied de page NFI REPORT">
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
@@ -156,21 +156,27 @@ export function Footer() {
               </li>
             </ul>
             {/* Newsletter mini */}
-            <div className="mt-5">
-              <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
-              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+            <div className="mt-5" aria-label="Inscription à la newsletter">
+              <p className="text-xs text-gray-500 mb-2" id="footer-newsletter-label">Newsletter quotidienne</p>
+              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()} aria-labelledby="footer-newsletter-label">
+                <label htmlFor="footer-email" className="sr-only">Votre adresse e-mail</label>
                 <input
+                  id="footer-email"
                   type="email"
+                  name="email"
                   placeholder="Votre e-mail"
+                  autoComplete="email"
+                  required
                   className="flex-1 px-3 py-1.5 text-sm bg-white/10 border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
                   style={{ borderColor: "rgba(0,166,81,0.3)" }}
                 />
                 <button
                   type="submit"
+                  aria-label="S'inscrire à la newsletter"
                   className="px-3 py-1.5 text-xs text-white font-medium rounded-lg transition hover:opacity-90"
                   style={{ background: "#00A651" }}
                 >
-                  OK
+                  S'inscrire
                 </button>
               </form>
             </div>

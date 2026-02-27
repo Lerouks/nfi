@@ -64,7 +64,7 @@ export function Layout() {
       <PersistRoute />
       <ScrollToTop />
       <Navbar />
-      <main className="flex-1">
+      <main id="main-content" className="flex-1" role="main">
         <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>

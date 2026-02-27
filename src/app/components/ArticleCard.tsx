@@ -134,8 +134,10 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
         </div>
         <button
           onClick={() => setSaved(!saved)}
+          aria-label={saved ? "Retirer des favoris" : "Sauvegarder cet article"}
+          aria-pressed={saved}
           className="absolute top-3 right-3 p-1.5 bg-white/90 rounded-full hover:bg-white transition text-gray-600">
-          {saved ? <BookmarkCheck size={15} style={{ color: "#C9A84C" }} /> : <Bookmark size={15} />}
+          {saved ? <BookmarkCheck size={15} style={{ color: "#C9A84C" }} aria-hidden="true" /> : <Bookmark size={15} aria-hidden="true" />}
         </button>
       </div>
       <div className="p-4 flex flex-col flex-1">

@@ -1,5 +1,5 @@
-import { useState, lazy, Suspense } from "react";
-import { Link } from "react-router";
+import { useState, lazy, Suspense, useEffect } from "react";
+import { Link, useSearchParams } from "react-router";
 import {
   Calculator, TrendingUp, Banknote, Percent,
   Star, Lock, ChevronRight, Sparkles, Zap,
@@ -116,6 +116,9 @@ function ToolNavItem({
     <button
       onClick={locked ? undefined : onClick}
       disabled={locked}
+      aria-label={locked ? `${tool.label} — réservé aux abonnés Premium` : tool.label}
+      aria-current={isActive ? "true" : undefined}
+      title={tool.description}
       className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all ${
         locked
           ? "opacity-50 cursor-not-allowed"
@@ -145,11 +148,22 @@ function ToolNavItem({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ToolsPage() {
-  const [activeId, setActiveId] = useState(FREE_TOOLS[0].id);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Lire le paramètre URL ?outil=<id> pour le deep-linking vers un outil précis
+  const urlTool = searchParams.get("outil");
+  const initialId = ALL_TOOLS.find((t) => t.id === urlTool)?.id ?? FREE_TOOLS[0].id;
+
+  const [activeId, setActiveId] = useState(initialId);
   // On garde en mémoire tous les outils déjà ouverts pour éviter le démontage
   const [loadedIds, setLoadedIds] = useState<Set<string>>(
-    () => new Set([FREE_TOOLS[0].id])
+    () => new Set([initialId])
   );
+
+  // Synchroniser l'URL quand l'outil change (permet le bookmarking et le partage)
+  useEffect(() => {
+    setSearchParams({ outil: activeId }, { replace: true });
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = ALL_TOOLS.find((t) => t.id === activeId) ?? FREE_TOOLS[0];
   const isActiveLocked = !IS_PREMIUM && active.plan === "premium";
@@ -301,16 +315,16 @@ export default function ToolsPage() {
         <div className="flex flex-col lg:flex-row gap-6">
 
           {/* ── Sidebar navigation (desktop uniquement) ─────────────────── */}
-          <aside className="hidden lg:block lg:w-64 shrink-0">
+          <aside className="hidden lg:block lg:w-64 shrink-0" aria-label="Navigation des outils">
             <div className="bg-white rounded-2xl border p-2 sticky top-24 space-y-3" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
 
               {/* Plan Gratuit */}
               <div>
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Zap size={12} className="text-[#D97706]" />
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan Gratuit</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider" id="free-tools-label">Plan Gratuit</p>
                 </div>
-                <nav className="space-y-0.5">
+                <nav aria-labelledby="free-tools-label" className="space-y-0.5">
                   {FREE_TOOLS.map((tool) => (
                     <ToolNavItem
                       key={tool.id}
@@ -328,9 +342,9 @@ export default function ToolsPage() {
               <div>
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Star size={12} className="text-[#00A651]" />
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan Premium</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider" id="premium-tools-label">Plan Premium</p>
                 </div>
-                <nav className="space-y-0.5">
+                <nav aria-labelledby="premium-tools-label" className="space-y-0.5">
                   {PREMIUM_TOOLS.map((tool) => (
                     <ToolNavItem
                       key={tool.id}
@@ -367,7 +381,7 @@ export default function ToolsPage() {
           </aside>
 
           {/* ── Contenu outil ───────────────────────────────────── */}
-          <main id="tool-content" className="flex-1 min-w-0">
+          <main id="tool-content" className="flex-1 min-w-0" aria-label={`Outil actif : ${active.label}`}>
             {/* Breadcrumb + badge plan */}
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-2 text-sm text-gray-400">
