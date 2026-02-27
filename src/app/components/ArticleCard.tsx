@@ -1,8 +1,8 @@
 import { Link } from "react-router";
 import { Clock, Eye, MessageCircle, Lock, Bookmark, BookmarkCheck } from "lucide-react";
-import { useState } from "react";
 import type { Article } from "../data/mockData";
 import { formatDate } from "../data/mockData";
+import { useSavedArticles } from "../../lib/savedArticles";
 
 interface ArticleCardProps {
   article: Article;
@@ -11,7 +11,8 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, variant = "grid", showExcerpt = false }: ArticleCardProps) {
-  const [saved, setSaved] = useState(false);
+  const { isSaved, toggle } = useSavedArticles();
+  const saved = isSaved(article.slug);
 
   if (variant === "compact") {
     return (
@@ -98,7 +99,7 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
           </div>
         </div>
         <button
-          onClick={() => setSaved(!saved)}
+          onClick={() => toggle(article)}
           className="p-1.5 rounded-full hover:bg-gray-100 transition shrink-0 text-gray-400 hover:text-[#00A651]"
           aria-label={saved ? "Retirer des favoris" : "Sauvegarder"}>
           {saved ? <BookmarkCheck size={16} className="text-[#00A651]" /> : <Bookmark size={16} />}
@@ -133,7 +134,7 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
           )}
         </div>
         <button
-          onClick={() => setSaved(!saved)}
+          onClick={() => toggle(article)}
           aria-label={saved ? "Retirer des favoris" : "Sauvegarder cet article"}
           aria-pressed={saved}
           className="absolute top-3 right-3 p-1.5 bg-white/90 rounded-full hover:bg-white transition text-gray-600">
