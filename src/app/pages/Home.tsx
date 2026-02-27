@@ -10,9 +10,10 @@ import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { BRVMChart, GDPChart, InvestmentChart } from "../components/FinancialChart";
 
 export default function Home() {
-  const [featured, setFeatured] = useState<Article[]>([]);
-  const [latest, setLatest]     = useState<Article[]>([]);
-  const [popular, setPopular]   = useState<Article[]>([]);
+  const [featured, setFeatured]     = useState<Article[]>([]);
+  const [latest, setLatest]         = useState<Article[]>([]);
+  const [popular, setPopular]       = useState<Article[]>([]);
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
 
   useEffect(() => {
     getFeaturedArticles()
@@ -21,11 +22,19 @@ export default function Home() {
     getAllArticles()
       .then((data) => {
         const articles = data.map(toArticle);
+        setAllArticles(articles);
         setLatest(articles.slice(0, 6));
         setPopular(articles.slice(0, 4));
       })
       .catch((err) => console.error('[Sanity] getAllArticles error:', err));
   }, []);
+
+  const categoryCounts = Object.fromEntries(
+    CATEGORIES.map((cat) => [
+      cat.slug,
+      allArticles.filter((a) => a.categorySlug === cat.slug).length,
+    ])
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
@@ -249,7 +258,7 @@ export default function Home() {
                       {cat.name}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-400">{cat.count}</span>
+                      <span className="text-xs text-gray-400">{categoryCounts[cat.slug] ?? 0}</span>
                       <ChevronRight size={12} className="text-gray-300 group-hover:text-[#00A651]" />
                     </div>
                   </Link>
@@ -260,7 +269,7 @@ export default function Home() {
             {/* Focus Niger highlight */}
             <div className="rounded-xl overflow-hidden relative group">
               <img
-                src="https://images.unsplash.com/photo-1761143518967-4f9f4f65a955?w=400&h=250&fit=crop"
+                src="/focus-niger.jpg"
                 alt="Focus Niger"
                 className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
