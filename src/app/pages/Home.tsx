@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
 import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
 import { getAllArticles, getFeaturedArticles, toArticle } from "../../lib/sanity";
+import { getAllArticleViews } from "../../lib/supabase";
 import { ArticleCard } from "../components/ArticleCard";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -19,14 +20,26 @@ export default function Home() {
     getFeaturedArticles()
       .then((data) => setFeatured(data.map(toArticle)))
       .catch((err) => console.error('[Sanity] getFeaturedArticles error:', err));
-    getAllArticles()
-      .then((data) => {
-        const articles = data.map(toArticle);
+
+    Promise.all([getAllArticles(), getAllArticleViews()])
+      .then(([sanityData, viewsMap]) => {
+        const articles = sanityData.map((a) => ({
+          ...toArticle(a),
+          views: viewsMap[a.slug?.current ?? ""] ?? 0,
+        }));
         setAllArticles(articles);
-        setLatest(articles.slice(0, 6));
-        setPopular(articles.slice(0, 4));
+
+        // Dernières actualités : triées par date de publication (plus récent en premier)
+        const byDate = [...articles].sort(
+          (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+        );
+        setLatest(byDate.slice(0, 6));
+
+        // Les plus lus : triés par vues réelles (plus de vues en premier)
+        const byViews = [...articles].sort((a, b) => b.views - a.views);
+        setPopular(byViews.slice(0, 4));
       })
-      .catch((err) => console.error('[Sanity] getAllArticles error:', err));
+      .catch((err) => console.error('[Home] getAllArticles error:', err));
   }, []);
 
   const categoryCounts = Object.fromEntries(

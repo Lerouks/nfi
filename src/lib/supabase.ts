@@ -207,3 +207,17 @@ export async function likeComment(commentId: string): Promise<void> {
     supabase.rpc("increment_comment_likes", { comment_id: commentId })
   );
 }
+
+/** Retourne les vues de tous les articles (pour trier "Les plus lus") */
+export async function getAllArticleViews(): Promise<Record<string, number>> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("article_views")
+      .select("article_slug, views")
+      .order("views", { ascending: false })
+  );
+  if (!data) return {};
+  return Object.fromEntries(
+    (data as { article_slug: string; views: number }[]).map((r) => [r.article_slug, r.views])
+  );
+}
