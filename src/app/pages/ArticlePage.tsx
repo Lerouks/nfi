@@ -24,6 +24,7 @@ import { ArticleCard } from "../components/ArticleCard";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MarketOverview } from "../components/MarketTicker";
+import { useClerkActive } from "../../lib/clerkActive";
 
 // Type unifié pour l'affichage des commentaires (Supabase ou mock)
 type DisplayComment = {
@@ -46,9 +47,29 @@ function toDisplayComment(c: SupabaseComment): DisplayComment {
   };
 }
 
-export default function ArticlePage() {
-  const { slug } = useParams<{ slug: string }>();
+// Données utilisateur minimales utilisées dans la page
+interface UserData {
+  fullName: string | null;
+  firstName: string | null;
+  imageUrl: string;
+  id: string;
+}
+
+// ─── Wrapper Clerk — appelé uniquement quand ClerkProvider est actif ───────────
+function ArticlePageWithClerk() {
   const { user, isSignedIn } = useUser();
+  return (
+    <ArticlePageContent
+      user={user ? { fullName: user.fullName, firstName: user.firstName, imageUrl: user.imageUrl, id: user.id } : null}
+      isSignedIn={!!isSignedIn}
+      clerkActive={true}
+    />
+  );
+}
+
+// ─── Contenu de la page article ───────────────────────────────────────────────
+function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData | null; isSignedIn: boolean; clerkActive: boolean }) {
+  const { slug } = useParams<{ slug: string }>();
   const [sanityArticle, setSanityArticle] = useState<SanityArticle | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,12 +417,19 @@ export default function ArticlePage() {
                   <p className="text-sm text-gray-600 flex-1">
                     Connectez-vous pour laisser un commentaire.
                   </p>
-                  <SignInButton mode="modal">
-                    <button className="px-4 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90"
+                  {clerkActive ? (
+                    <SignInButton mode="modal">
+                      <button className="px-4 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90"
+                        style={{ background: "#00A651" }}>
+                        Se connecter
+                      </button>
+                    </SignInButton>
+                  ) : (
+                    <Link to="/profile" className="px-4 py-2 text-sm text-white font-medium rounded-full transition hover:opacity-90"
                       style={{ background: "#00A651" }}>
                       Se connecter
-                    </button>
-                  </SignInButton>
+                    </Link>
+                  )}
                 </div>
               )}
 
@@ -492,4 +520,11 @@ export default function ArticlePage() {
       </div>
     </div>
   );
+}
+
+// ─── Export principal avec garde Clerk ────────────────────────────────────────
+export default function ArticlePage() {
+  const clerkActive = useClerkActive();
+  if (clerkActive) return <ArticlePageWithClerk />;
+  return <ArticlePageContent user={null} isSignedIn={false} clerkActive={false} />;
 }
