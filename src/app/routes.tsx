@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { createHashRouter } from "react-router";
+import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 
 // Lazy-load all pages → code splitting (réduit le bundle initial)
@@ -14,7 +14,7 @@ const ToolsPage    = lazy(() => import("./pages/ToolsPage"));
 const LegalPage    = lazy(() => import("./pages/LegalPage"));
 const NotFound     = lazy(() => import("./pages/NotFound"));
 
-export const router = createHashRouter([
+export const router = createBrowserRouter([
   {
     path: "/",
     Component: Layout,

@@ -107,10 +107,27 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
   }, [slug]);
 
   useEffect(() => {
-    if (sanityArticle) {
-      document.title = `${sanityArticle.title} — NFI REPORT`;
+    if (!sanityArticle) return;
+    const a = toArticle(sanityArticle);
+    const url = `${window.location.origin}/article/${a.slug}`;
+    document.title = `${a.title} — NFI REPORT`;
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", a.title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute("content", a.excerpt);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
+    document.querySelector('meta[property="og:type"]')?.setAttribute("content", "article");
+    if (a.cover) {
+      document.querySelector('meta[property="og:image"]')?.setAttribute("content", a.cover);
+      document.querySelector('meta[property="og:image:secure_url"]')?.setAttribute("content", a.cover);
     }
-    return () => { document.title = "NFI REPORT - La référence financière et économique au Niger"; };
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[property="og:title"]')?.setAttribute("content", "NFI REPORT - La référence financière au Niger");
+      document.querySelector('meta[property="og:description"]')?.setAttribute("content", "Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger.");
+      document.querySelector('meta[property="og:url"]')?.setAttribute("content", "https://www.nfireport.com/");
+      document.querySelector('meta[property="og:type"]')?.setAttribute("content", "website");
+      document.querySelector('meta[property="og:image"]')?.setAttribute("content", "https://www.nfireport.com/logo.png");
+      document.querySelector('meta[property="og:image:secure_url"]')?.setAttribute("content", "https://www.nfireport.com/logo.png");
+    };
   }, [sanityArticle]);
 
   if (loading) {
@@ -183,7 +200,7 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
     });
   };
 
-  const articleUrl = `https://www.nfireport.com/#/article/${article.slug}`;
+  const articleUrl = `${window.location.origin}/article/${article.slug}`;
   const encodedUrl   = encodeURIComponent(articleUrl);
   const encodedTitle = encodeURIComponent(article.title);
 
