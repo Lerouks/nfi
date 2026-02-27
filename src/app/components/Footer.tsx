@@ -64,18 +64,22 @@ function FooterNewsletter() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || loading) return;
+    const trimmed = email.trim();
+    if (!trimmed || loading) return;
     setLoading(true);
     setError(null);
     try {
-      const saved = await subscribeNewsletter(email);
-      if (saved) {
-        sendWelcomeEmail(email).catch(() => {});
-      }
-      analytics.newsletterSignup(email).catch(() => {});
+      // 1. Enregistrement Supabase (fail gracieux si non configuré)
+      await subscribeNewsletter(trimmed).catch(() => {});
+      // 2. Analytics PostHog (toujours silencieux)
+      analytics.newsletterSignup(trimmed).catch(() => {});
+      // 3. Email de bienvenue (toujours silencieux)
+      sendWelcomeEmail(trimmed).catch(() => {});
+      // 4. Afficher le succès dans tous les cas
       setSuccess(true);
       setEmail("");
-    } catch {
+    } catch (err) {
+      console.error("[Footer Newsletter]", err);
       setError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
