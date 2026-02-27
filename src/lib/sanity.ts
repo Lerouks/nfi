@@ -72,8 +72,27 @@ export async function searchArticles(query: string): Promise<SanityArticle[]> {
   );
 }
 
+// Mapping des catégories Sanity → { name, slug } de l'app
+const CATEGORY_MAP: Record<string, { name: string; slug: string }> = {
+  // valeurs actuelles (alignées avec l'app)
+  "economie-africaine":  { name: "Économie Africaine", slug: "economie-africaine" },
+  "economie-mondiale":   { name: "Économie Mondiale",  slug: "economie-mondiale" },
+  "focus-niger":         { name: "Focus Niger",        slug: "focus-niger" },
+  "analyses-de-marche":  { name: "Analyses de Marché", slug: "analyses-de-marche" },
+  // anciennes valeurs (rétro-compatibilité)
+  "economie":    { name: "Économie Africaine", slug: "economie-africaine" },
+  "finance":     { name: "Économie Africaine", slug: "economie-africaine" },
+  "afrique":     { name: "Économie Africaine", slug: "economie-africaine" },
+  "entreprises": { name: "Économie Africaine", slug: "economie-africaine" },
+  "international": { name: "Économie Mondiale", slug: "economie-mondiale" },
+  "niger":       { name: "Focus Niger",        slug: "focus-niger" },
+  "marches":     { name: "Analyses de Marché", slug: "analyses-de-marche" },
+  "analyse":     { name: "Analyses de Marché", slug: "analyses-de-marche" },
+};
+
 // Convertit un SanityArticle en format compatible avec le reste de l'app
 export function toArticle(a: SanityArticle) {
+  const cat = CATEGORY_MAP[a.category] ?? { name: a.category ?? "Actualités", slug: a.category ?? "actualites" };
   return {
     id: a._id,
     title: a.title,
@@ -89,8 +108,8 @@ export function toArticle(a: SanityArticle) {
       bio: "",
       articles: 0,
     },
-    category: a.category,
-    categorySlug: a.category,
+    category: cat.name,
+    categorySlug: cat.slug,
     tags: a.tags ?? [],
     publishedAt: a.publishedAt,
     readTime: a.readTime ?? 5,

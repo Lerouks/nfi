@@ -41,14 +41,10 @@ export default {
       type: "string",
       options: {
         list: [
-          { title: "Économie", value: "economie" },
-          { title: "Finance", value: "finance" },
-          { title: "Marchés", value: "marches" },
-          { title: "Niger", value: "niger" },
-          { title: "Afrique", value: "afrique" },
-          { title: "International", value: "international" },
-          { title: "Entreprises", value: "entreprises" },
-          { title: "Analyse", value: "analyse" },
+          { title: "Économie Africaine",  value: "economie-africaine" },
+          { title: "Économie Mondiale",   value: "economie-mondiale" },
+          { title: "Focus Niger",         value: "focus-niger" },
+          { title: "Analyses de Marché",  value: "analyses-de-marche" },
         ],
       },
       validation: (Rule: any) => Rule.required(),
