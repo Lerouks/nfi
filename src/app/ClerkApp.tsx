@@ -6,6 +6,7 @@ import { clerkAppearance } from "../lib/clerk";
 import { upsertProfile } from "../lib/supabase";
 import { analytics } from "../lib/posthog";
 import { setUserContext, clearUserContext } from "../lib/sentry";
+import { ClerkActiveCtx } from "../lib/clerkActive";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
@@ -52,8 +53,10 @@ function UserSync() {
 export default function ClerkApp() {
   return (
     <ClerkProvider publishableKey={clerkKey} appearance={clerkAppearance}>
-      <UserSync />
-      <RouterProvider router={router} />
+      <ClerkActiveCtx.Provider value={true}>
+        <UserSync />
+        <RouterProvider router={router} />
+      </ClerkActiveCtx.Provider>
     </ClerkProvider>
   );
 }

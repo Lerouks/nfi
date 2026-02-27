@@ -10,11 +10,7 @@ import { ArticleCard } from "../components/ArticleCard";
 import { SignInButton, useUser } from "@clerk/clerk-react";
 import { useSavedArticles } from "../../lib/savedArticles";
 import { useSearchParams } from "react-router";
-
-// ─── Vérification Clerk ───────────────────────────────────────────────────────
-const CLERK_READY =
-  typeof import.meta.env.VITE_CLERK_PUBLISHABLE_KEY === "string" &&
-  (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string).startsWith("pk_");
+import { useClerkActive } from "../../lib/clerkActive";
 
 type Tab = "overview" | "saved" | "subscription" | "settings";
 
@@ -82,8 +78,8 @@ function NotSignedInScreen() {
 
 // ─── Page profil principale ───────────────────────────────────────────────────
 export default function ProfilePage() {
-  if (CLERK_READY) return <ProfileWithClerk />;
-  // Fallback sans Clerk : mock connecté (comportement original)
+  const clerkActive = useClerkActive();
+  if (clerkActive) return <ProfileWithClerk />;
   return <ProfileContent user={MOCK_USER} isLoggedIn={true} />;
 }
 
