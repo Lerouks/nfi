@@ -219,6 +219,9 @@ function ArticlePageContent({
       setComments((prev) =>
         prev.map((c) => (c.id === optimistic.id ? toDisplayComment(saved) : c))
       );
+    } else {
+      // Rollback : retirer le commentaire optimistic si la sauvegarde a échoué
+      setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
     }
   };
 
@@ -330,7 +333,7 @@ function ArticlePageContent({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Partager sur Twitter"
-                      className="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#1DA1F2]"
+                      className="p-2.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#1DA1F2]"
                     >
                       <Twitter size={15} />
                     </a>
@@ -339,7 +342,7 @@ function ArticlePageContent({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Partager sur LinkedIn"
-                      className="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#0A66C2]"
+                      className="p-2.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#0A66C2]"
                     >
                       <Linkedin size={15} />
                     </a>
@@ -348,7 +351,7 @@ function ArticlePageContent({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Partager sur Facebook"
-                      className="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#1877F2]"
+                      className="p-2.5 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-[#1877F2]"
                     >
                       <Facebook size={15} />
                     </a>
@@ -356,13 +359,13 @@ function ArticlePageContent({
                       onClick={copyLink}
                       aria-label="Copier le lien"
                       title={copied ? "Lien copié !" : "Copier le lien"}
-                      className={`p-1.5 rounded-full hover:bg-gray-100 transition ${copied ? "text-[#00A651]" : "text-gray-500 hover:text-[#C9A84C]"}`}
+                      className={`p-2.5 rounded-full hover:bg-gray-100 transition ${copied ? "text-[#00A651]" : "text-gray-500 hover:text-[#C9A84C]"}`}
                     >
                       {copied ? <Check size={15} /> : <Copy size={15} />}
                     </button>
                     <button
                       onClick={() => toggle(article)}
-                      className="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-500"
+                      className="p-2.5 rounded-full hover:bg-gray-100 transition text-gray-500"
                       aria-label={isSaved(article.slug) ? "Retirer des favoris" : "Sauvegarder"}
                     >
                       {isSaved(article.slug) ? <BookmarkCheck size={15} className="text-[#00A651]" /> : <Bookmark size={15} className="text-gray-500 hover:text-[#C9A84C]" />}

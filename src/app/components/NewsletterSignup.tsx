@@ -12,21 +12,22 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || loading) return;
+    const trimmed = email.trim();
+    if (!trimmed || loading) return;
 
     setLoading(true);
     setError(null);
 
     try {
       // 1. Enregistrer dans Supabase (newsletters table)
-      const saved = await subscribeNewsletter(email);
+      const saved = await subscribeNewsletter(trimmed);
 
       if (saved) {
         // Email de bienvenue via Supabase Edge Function → Resend
-        sendWelcomeEmail(email).catch(() => {});
+        sendWelcomeEmail(trimmed).catch(() => {});
 
         // Tracker l'événement dans PostHog
-        analytics.newsletterSignup(email).catch(() => {});
+        analytics.newsletterSignup(trimmed).catch(() => {});
 
         setSuccess(true);
         setEmail("");
