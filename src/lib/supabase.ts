@@ -93,6 +93,8 @@ export type PaymentRequest = {
   payment_method: string;
   phone_number: string | null;
   reference_number: string | null;
+  promo_code: string | null;
+  admin_note: string | null;
   status: "pending" | "verified" | "rejected" | "refunded";
   created_at: string;
 };
@@ -219,6 +221,7 @@ export async function savePaymentRequest(req: {
   paymentMethod: string;
   phoneNumber?: string;
   referenceNumber?: string;
+  promoCode?: string;
 }): Promise<PaymentRequest | null> {
   return safeQuery(() =>
     supabase
@@ -234,11 +237,75 @@ export async function savePaymentRequest(req: {
         payment_method:   req.paymentMethod,
         phone_number:     req.phoneNumber ?? null,
         reference_number: req.referenceNumber ?? null,
+        promo_code:       req.promoCode ?? null,
         status:           "pending",
       })
       .select()
       .single()
   , "savePaymentRequest");
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+/** [Admin] Récupère toutes les demandes de paiement */
+export async function adminGetAllPaymentRequests(): Promise<PaymentRequest[]> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("payment_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+  , "adminGetAllPaymentRequests");
+  return (data as PaymentRequest[] | null) ?? [];
+}
+
+/** [Admin] Met à jour le statut d'une demande de paiement */
+export async function adminUpdatePaymentRequest(
+  id: string,
+  status: "verified" | "rejected" | "refunded",
+  adminNote?: string
+): Promise<boolean> {
+  const result = await safeQuery(() =>
+    supabase
+      .from("payment_requests")
+      .update({ status, admin_note: adminNote ?? null, updated_at: new Date().toISOString() })
+      .eq("id", id)
+  , "adminUpdatePaymentRequest");
+  return result !== null;
+}
+
+/** [Admin] Recherche des profils par email */
+export async function adminSearchProfiles(email: string): Promise<Profile[]> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("profiles")
+      .select("*")
+      .ilike("email", `%${email}%`)
+      .limit(20)
+  , "adminSearchProfiles");
+  return (data as Profile[] | null) ?? [];
+}
+
+/** [Admin] Met à jour l'abonnement d'un utilisateur */
+export async function adminUpdateSubscription(
+  userId: string,
+  tier: SubscriptionTier,
+  months: number
+): Promise<boolean> {
+  const expiresAt = tier === "free"
+    ? null
+    : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+  const result = await safeQuery(() =>
+    supabase
+      .from("profiles")
+      .update({
+        subscription_tier:       tier,
+        subscription_status:     tier === "free" ? "canceled" : "active",
+        subscription_expires_at: expiresAt,
+        updated_at:              new Date().toISOString(),
+      })
+      .eq("id", userId)
+  , "adminUpdateSubscription");
+  return result !== null;
 }
 
 /** Récupère les demandes de paiement d'un utilisateur */

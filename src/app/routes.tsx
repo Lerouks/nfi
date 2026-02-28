@@ -12,6 +12,7 @@ const ProfilePage  = lazy(() => import("./pages/ProfilePage"));
 const SearchPage   = lazy(() => import("./pages/SearchPage"));
 const ToolsPage    = lazy(() => import("./pages/ToolsPage"));
 const LegalPage    = lazy(() => import("./pages/LegalPage"));
+const AdminPage    = lazy(() => import("./pages/AdminPage"));
 const NotFound     = lazy(() => import("./pages/NotFound"));
 
 export const router = createBrowserRouter([
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "search",             Component: SearchPage },
       { path: "outils",             Component: ToolsPage },
       { path: "legal/:slug",        Component: LegalPage },
+      { path: "admin",              Component: AdminPage },
       { path: "*",                  Component: NotFound },
     ],
   },
