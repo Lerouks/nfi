@@ -57,13 +57,36 @@ async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }
 }
 
 // ─── Types des tables NFI REPORT ─────────────────────────────────────────────
+export type SubscriptionTier = "free" | "standard" | "premium";
+export type SubscriptionStatus = "active" | "past_due" | "canceled" | "pending";
+
 export type Profile = {
-  id: string;                                           // Clerk user ID
+  id: string;                   // Clerk user ID
   email: string;
   full_name: string | null;
   avatar_url: string | null;
-  subscription_tier: "free" | "standard" | "premium";
+  subscription_tier: SubscriptionTier;
+  subscription_status: SubscriptionStatus;
   subscription_expires_at: string | null;
+  premium_read_count: number;
+  premium_read_reset_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentRequest = {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string | null;
+  plan_id: string;
+  plan_name: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  phone_number: string | null;
+  reference_number: string | null;
+  status: "pending" | "verified" | "rejected" | "refunded";
   created_at: string;
 };
 
@@ -114,32 +137,135 @@ export async function upsertProfile(profile: Partial<Profile> & { id: string }):
   const result = await safeQuery(() =>
     supabase.from("profiles").upsert({
       ...profile,
-      subscription_tier: profile.subscription_tier ?? "free",
-      created_at: profile.created_at ?? new Date().toISOString(),
+      subscription_tier:   profile.subscription_tier   ?? "free",
+      subscription_status: profile.subscription_status ?? "active",
+      updated_at: new Date().toISOString(),
     })
   );
   return result !== null;
 }
 
-// ─── Newsletter ───────────────────────────────────────────────────────────────
+/**
+ * Retourne le tier effectif d'un utilisateur en tenant compte de la date d'expiration.
+ * Si l'abonnement est expiré, retourne "free" et met à jour le profil en base.
+ */
+export async function getEffectiveTier(userId: string): Promise<SubscriptionTier> {
+  if (!SUPABASE_READY || !userId) return "free";
+  const profile = await getProfile(userId);
+  if (!profile) return "free";
 
-/** Inscrit un email à la newsletter (upsert = pas de doublon) */
-export async function subscribeNewsletter(email: string): Promise<boolean> {
-  const result = await safeQuery(() =>
-    supabase.from("newsletters").upsert(
-      { email, is_active: true, subscribed_at: new Date().toISOString() },
-      { onConflict: "email" }
-    )
-  );
-  return result !== null;
+  const tier = profile.subscription_tier;
+  if (tier === "free") return "free";
+
+  // Vérifier expiration
+  if (profile.subscription_expires_at) {
+    const expiry = new Date(profile.subscription_expires_at);
+    if (expiry < new Date()) {
+      // Downgrade automatique
+      await safeQuery(() =>
+        supabase.from("profiles").update({
+          subscription_tier:   "free",
+          subscription_status: "canceled",
+          updated_at:          new Date().toISOString(),
+        }).eq("id", userId)
+      );
+      return "free";
+    }
+  }
+  return tier;
 }
 
-/** Vérifie si un email est déjà inscrit */
-export async function isNewsletterSubscribed(email: string): Promise<boolean> {
+/**
+ * Vérifie si un utilisateur free peut lire un article premium (quota 3/mois).
+ * NE consomme PAS le quota — appeler usePremiumQuota() pour consommer.
+ */
+export async function checkPremiumQuota(userId: string): Promise<number> {
+  if (!SUPABASE_READY || !userId) return 0;
   const data = await safeQuery(() =>
-    supabase.from("newsletters").select("id").eq("email", email).eq("is_active", true).single()
+    supabase.rpc("check_premium_quota", { p_user_id: userId })
   );
-  return data !== null;
+  return (data as number | null) ?? 0;
+}
+
+/**
+ * Consomme 1 lecture premium pour un utilisateur free.
+ * Retourne le nombre de lectures restantes après consommation (0 = quota épuisé).
+ */
+export async function usePremiumQuota(userId: string): Promise<number> {
+  if (!SUPABASE_READY || !userId) return 0;
+  const data = await safeQuery(() =>
+    supabase.rpc("use_premium_quota", { p_user_id: userId })
+  );
+  return (data as number | null) ?? 0;
+}
+
+// ─── Paiements ───────────────────────────────────────────────────────────────
+
+/** Enregistre une demande de paiement en attente de validation admin */
+export async function savePaymentRequest(req: {
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  planId: string;
+  planName: string;
+  amount: number;
+  paymentMethod: string;
+  phoneNumber?: string;
+  referenceNumber?: string;
+}): Promise<PaymentRequest | null> {
+  return safeQuery(() =>
+    supabase
+      .from("payment_requests")
+      .insert({
+        user_id:          req.userId,
+        user_email:       req.userEmail,
+        user_name:        req.userName,
+        plan_id:          req.planId,
+        plan_name:        req.planName,
+        amount:           req.amount,
+        currency:         "FCFA",
+        payment_method:   req.paymentMethod,
+        phone_number:     req.phoneNumber ?? null,
+        reference_number: req.referenceNumber ?? null,
+        status:           "pending",
+      })
+      .select()
+      .single()
+  );
+}
+
+/** Récupère les demandes de paiement d'un utilisateur */
+export async function getPaymentRequests(userId: string): Promise<PaymentRequest[]> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("payment_requests")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+  );
+  return (data as PaymentRequest[] | null) ?? [];
+}
+
+// ─── Newsletter ───────────────────────────────────────────────────────────────
+
+/** Inscrit un email à la newsletter (upsert = pas de doublon). Retourne true si OK. */
+export async function subscribeNewsletter(email: string, tier: SubscriptionTier = "free"): Promise<boolean> {
+  if (!SUPABASE_READY) return false;
+  try {
+    const { error } = await supabase.from("newsletters").upsert(
+      {
+        email,
+        plan_tier:     tier,
+        is_active:     true,
+        subscribed_at: new Date().toISOString(),
+        updated_at:    new Date().toISOString(),
+      },
+      { onConflict: "email" }
+    );
+    return error === null;
+  } catch {
+    return false;
+  }
 }
 
 // ─── Articles ─────────────────────────────────────────────────────────────────

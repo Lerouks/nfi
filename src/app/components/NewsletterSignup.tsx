@@ -22,20 +22,16 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
       const saved = await subscribeNewsletter(email);
 
       if (saved) {
-        // 2. Email de bienvenue via Supabase Edge Function → Resend
-        //    (fail gracieux si l'Edge Function n'est pas encore déployée)
+        // Email de bienvenue via Supabase Edge Function → Resend
         sendWelcomeEmail(email).catch(() => {});
 
-        // 3. Tracker l'événement dans PostHog
+        // Tracker l'événement dans PostHog
         analytics.newsletterSignup(email).catch(() => {});
 
         setSuccess(true);
         setEmail("");
       } else {
-        // Supabase n'est pas encore configuré → success UI quand même (démo)
-        analytics.newsletterSignup(email).catch(() => {});
-        setSuccess(true);
-        setEmail("");
+        setError("L'inscription a échoué. Veuillez réessayer dans quelques instants.");
       }
     } catch (err) {
       console.error("[Newsletter] Erreur inscription :", err);

@@ -4,6 +4,9 @@ import {
   Calculator, TrendingUp, Banknote, Percent,
   Star, Lock, ChevronRight, Sparkles, Zap,
 } from "lucide-react";
+import { useUser } from "@clerk/clerk-react";
+import { useClerkActive } from "../../lib/clerkActive";
+import { useSubscription } from "../../lib/subscription";
 
 // ─── Lazy imports ─────────────────────────────────────────────────────────────
 const SalarySimulator    = lazy(() => import("../components/tools/SalarySimulator"));
@@ -88,8 +91,16 @@ const PREMIUM_TOOLS: Tool[] = [
 
 const ALL_TOOLS = [...FREE_TOOLS, ...PREMIUM_TOOLS];
 
-// Simuler un utilisateur premium pour démo
-const IS_PREMIUM = true;
+// ─── Wrapper Clerk — lit le tier uniquement quand ClerkProvider est actif ─────
+function ToolsPageWithClerk() {
+  const { user, isSignedIn } = useUser();
+  const userId = isSignedIn && user ? user.id : null;
+  const subscription = useSubscription(userId);
+  const isPremium = !subscription.isLoading && (
+    subscription.tier === "standard" || subscription.tier === "premium"
+  );
+  return <ToolsPageContent isPremium={isPremium} subscriptionLoading={subscription.isLoading} />;
+}
 
 function ToolLoader() {
   return (
@@ -146,8 +157,15 @@ function ToolNavItem({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Export principal ─────────────────────────────────────────────────────────
 export default function ToolsPage() {
+  const clerkActive = useClerkActive();
+  if (clerkActive) return <ToolsPageWithClerk />;
+  return <ToolsPageContent isPremium={false} subscriptionLoading={false} />;
+}
+
+// ─── Contenu (design inchangé) ────────────────────────────────────────────────
+function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boolean; subscriptionLoading: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Lire le paramètre URL ?outil=<id> pour le deep-linking vers un outil précis
@@ -166,12 +184,12 @@ export default function ToolsPage() {
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = ALL_TOOLS.find((t) => t.id === activeId) ?? FREE_TOOLS[0];
-  const isActiveLocked = !IS_PREMIUM && active.plan === "premium";
+  const isActiveLocked = !isPremium && active.plan === "premium";
 
   const handleSelect = (id: string) => {
     const tool = ALL_TOOLS.find((t) => t.id === id);
     if (!tool) return;
-    if (!IS_PREMIUM && tool.plan === "premium") return;
+    if (!isPremium && tool.plan === "premium") return;
     // Ajouter l'outil au cache avant de switcher → plus de flash Suspense
     setLoadedIds((prev) => new Set([...prev, id]));
     setActiveId(id);
@@ -255,7 +273,7 @@ export default function ToolsPage() {
               <div className="space-y-1.5">
                 {PREMIUM_TOOLS.map((t) => {
                   const Icon = t.icon;
-                  const locked = !IS_PREMIUM;
+                  const locked = !isPremium;
                   return (
                     <button
                       key={t.id}
@@ -284,7 +302,7 @@ export default function ToolsPage() {
           <div className="overflow-x-auto scrollbar-none -mx-4 px-4">
             <div className="flex gap-2 min-w-max pb-1">
               {ALL_TOOLS.map((tool) => {
-                const locked = !IS_PREMIUM && tool.plan === "premium";
+                const locked = !isPremium && tool.plan === "premium";
                 const Icon = tool.icon;
                 return (
                   <button
@@ -351,13 +369,13 @@ export default function ToolsPage() {
                       tool={tool}
                       isActive={activeId === tool.id}
                       onClick={() => handleSelect(tool.id)}
-                      locked={!IS_PREMIUM}
+                      locked={!isPremium}
                     />
                   ))}
                 </nav>
 
                 {/* Badge abonné ou CTA */}
-                {IS_PREMIUM ? (
+                {isPremium ? (
                   <div className="mt-3 mx-2 rounded-xl p-3 text-center" style={{ background: "linear-gradient(135deg, #00A65108, #0D1B3508)" }}>
                     <div className="flex items-center justify-center gap-1.5 mb-1">
                       <Star size={13} className="text-[#00A651]" />
@@ -413,7 +431,14 @@ export default function ToolsPage() {
             </div>
 
             {/* Outil actif */}
-            {isActiveLocked ? (
+            {subscriptionLoading && active.plan === "premium" ? (
+              /* Chargement abonnement */
+              <div className="bg-white rounded-2xl border p-12 text-center animate-pulse" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl mx-auto mb-4" />
+                <div className="h-6 bg-gray-100 rounded w-48 mx-auto mb-3" />
+                <div className="h-4 bg-gray-100 rounded w-64 mx-auto" />
+              </div>
+            ) : isActiveLocked ? (
               /* Paywall inline */
               <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
                 <div className="w-14 h-14 rounded-2xl bg-[#00A651]/10 flex items-center justify-center mx-auto mb-4">
@@ -457,7 +482,7 @@ export default function ToolsPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ALL_TOOLS.filter((t) => t.id !== activeId).map((tool) => {
                   const Icon = tool.icon;
-                  const locked = !IS_PREMIUM && tool.plan === "premium";
+                  const locked = !isPremium && tool.plan === "premium";
                   return (
                     <button
                       key={tool.id}
