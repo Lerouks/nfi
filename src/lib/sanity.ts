@@ -77,6 +77,15 @@ export async function searchArticles(query: string): Promise<SanityArticle[]> {
   );
 }
 
+/** Compte le nombre d'articles publiés par un auteur (nom exact) */
+export async function getArticleCountByAuthor(authorName: string): Promise<number> {
+  const count = await sanityClient.fetch(
+    `count(*[_type == "article" && author == $authorName && defined(slug.current)])`,
+    { authorName }
+  );
+  return typeof count === "number" ? count : 0;
+}
+
 // Mapping des catégories Sanity → { name, slug } de l'app
 const CATEGORY_MAP: Record<string, { name: string; slug: string }> = {
   // valeurs actuelles (alignées avec l'app)

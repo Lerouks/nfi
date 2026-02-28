@@ -11,7 +11,7 @@ import {
   formatDate, type Article,
 } from "../data/mockData";
 import {
-  getArticleBySlug, getAllArticles, toArticle,
+  getArticleBySlug, getAllArticles, toArticle, getArticleCountByAuthor,
   type SanityArticle,
 } from "../../lib/sanity";
 import {
@@ -90,6 +90,7 @@ function ArticlePageContent({
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [realViews, setRealViews] = useState<number | null>(null);
+  const [authorArticleCount, setAuthorArticleCount] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Quota consommé pour cet article (pour ne pas re-consommer au reload)
   const quotaConsumedRef = useRef(false);
@@ -100,6 +101,10 @@ function ArticlePageContent({
     getArticleBySlug(slug).then((data) => {
       setSanityArticle(data);
       setLoading(false);
+      // Compter les articles de cet auteur depuis Sanity
+      if (data?.author) {
+        getArticleCountByAuthor(data.author).then(setAuthorArticleCount);
+      }
     });
     getAllArticles().then((data) => {
       setRelatedArticles(data.slice(0, 4).map(toArticle));
@@ -459,7 +464,9 @@ function ArticlePageContent({
                   <h4 className="text-gray-900 font-semibold">{article.author.name}</h4>
                   <p className="text-[#00A651] text-xs mb-2">{article.author.role}</p>
                   <p className="text-gray-600 text-sm leading-relaxed">{article.author.bio}</p>
-                  <p className="text-xs text-gray-500 mt-3">{article.author.articles} articles publiés</p>
+                  <p className="text-xs text-gray-500 mt-3">
+                    {authorArticleCount !== null ? authorArticleCount : article.author.articles} articles publiés
+                  </p>
                 </div>
               </div>
             </div>

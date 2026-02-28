@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import {
   Star, CheckCircle2, CreditCard, Lock, Shield,
   ChevronRight, ChevronDown, BarChart2, Globe, Bell, Download,
-  Users, Award, Loader, Clock,
+  Users, Award, Loader, Clock, Tag, X,
 } from "lucide-react";
 import { SUBSCRIPTION_PLANS, formatPrice } from "../data/mockData";
 import { savePaymentRequest } from "../../lib/supabase";
@@ -63,8 +63,33 @@ function SubscribePageContent({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [cardData, setCardData] = useState({ number: "", expiry: "", cvv: "", name: "" });
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Codes promo disponibles : code → réduction (0.15 = -15%)
+  const PROMO_CODES: Record<string, number> = { "NFIREPORT1": 0.15 };
 
   const plan = SUBSCRIPTION_PLANS.find((p) => p.id === selectedPlan);
+  const discount = promoApplied ? (PROMO_CODES[promoInput.toUpperCase()] ?? 0) : 0;
+  const finalPrice = plan ? Math.round(plan.price * (1 - discount)) : 0;
+
+  const handleApplyPromo = () => {
+    const code = promoInput.trim().toUpperCase();
+    if (PROMO_CODES[code] !== undefined) {
+      setPromoApplied(true);
+      setPromoError(null);
+    } else {
+      setPromoError("Code promo invalide.");
+      setPromoApplied(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setPromoApplied(false);
+    setPromoInput("");
+    setPromoError(null);
+  };
 
   const handleSubscribe = (planId: string) => {
     if (planId === "free") return;
@@ -100,10 +125,11 @@ function SubscribePageContent({
       userName:        isSignedIn && user ? (user.fullName ?? user.firstName ?? null) : null,
       planId:          plan.id,
       planName:        plan.name,
-      amount:          plan.price,
+      amount:          finalPrice,
       paymentMethod,
       phoneNumber:     phoneNumber || undefined,
       referenceNumber: referenceNumber || undefined,
+      promoCode:       promoApplied ? promoInput.toUpperCase() : undefined,
     });
 
     if (saved) {
@@ -343,6 +369,42 @@ function SubscribePageContent({
                     </p>
                   </div>
 
+                  {/* Code promo */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                      <Tag size={12} className="text-[#00A651]" /> Code promo
+                    </p>
+                    {promoApplied ? (
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-green-50 border border-green-200 rounded-lg">
+                        <span className="text-sm text-green-700 font-medium">{promoInput.toUpperCase()} — −{Math.round(discount * 100)}% appliqué</span>
+                        <button type="button" onClick={handleRemovePromo} className="text-green-600 hover:text-green-800">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={promoInput}
+                          onChange={(e) => { setPromoInput(e.target.value); setPromoError(null); }}
+                          placeholder="Entrer votre code"
+                          className="flex-1 px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651] uppercase"
+                          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyPromo}
+                          disabled={!promoInput.trim()}
+                          className="px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                          style={{ background: "#00A651" }}
+                        >
+                          Appliquer
+                        </button>
+                      </div>
+                    )}
+                    {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
+                  </div>
+
                   <button
                     type="submit"
                     disabled={paymentState === "submitting"}
@@ -351,7 +413,7 @@ function SubscribePageContent({
                     {paymentState === "submitting" ? (
                       <><Loader size={14} className="animate-spin" /> Envoi en cours…</>
                     ) : (
-                      <><Lock size={14} /> Envoyer ma demande — {formatPrice(plan.price)} {plan.currency}</>
+                      <><Lock size={14} /> Envoyer ma demande — {formatPrice(finalPrice)} {plan.currency}</>
                     )}
                   </button>
                 </form>
@@ -376,11 +438,23 @@ function SubscribePageContent({
                     ))}
                   </div>
                 </div>
-                <div className="border-t border-white/10 pt-4">
+                <div className="border-t border-white/10 pt-4 space-y-2">
+                  {promoApplied && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Prix normal</span>
+                      <span className="text-gray-500 text-sm line-through">{formatPrice(plan.price)}</span>
+                    </div>
+                  )}
+                  {promoApplied && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#00A651] text-sm">{promoInput.toUpperCase()} (−{Math.round(discount * 100)}%)</span>
+                      <span className="text-[#00A651] text-sm">−{formatPrice(plan.price - finalPrice)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">Total</span>
                     <div className="text-right">
-                      <p className="text-white font-bold text-xl">{formatPrice(plan.price)}</p>
+                      <p className="text-white font-bold text-xl">{formatPrice(finalPrice)}</p>
                       <p className="text-gray-500 text-xs">{plan.currency} {plan.period}</p>
                     </div>
                   </div>
