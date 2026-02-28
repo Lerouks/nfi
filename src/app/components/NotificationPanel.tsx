@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import {
   Bell, X, Check, CheckCheck, TrendingUp, Newspaper,
-  AlertTriangle, Star, Info, Trash2,
+  AlertTriangle, Star, Info, Trash2, Loader,
 } from "lucide-react";
+import { getAllArticles, type SanityArticle } from "../../lib/sanity";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,64 +20,45 @@ interface Notification {
   read: boolean;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Persistance localStorage ─────────────────────────────────────────────────
 
-const INITIAL_NOTIFS: Notification[] = [
-  {
-    id: "1",
-    type: "breaking",
-    title: "Flash Info",
-    body: "La BCEAO relève ses taux directeurs : impact sur le crédit aux PME en zone UEMOA.",
-    href: "/article/bceao-taux-directeurs-credit-pme-uemoa",
-    time: new Date(Date.now() - 5 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "2",
-    type: "market",
-    title: "Alerte Marché",
-    body: "L'or franchit les 2 900 $/oz. Le FCFA recule légèrement face à l'euro.",
-    href: "/section/analyses-de-marche",
-    time: new Date(Date.now() - 28 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "3",
-    type: "article",
-    title: "Nouvel article publié",
-    body: "Investissements chinois en Afrique : vers un nouveau paradigme post-Forum de Beijing.",
-    href: "/article/investissements-chinois-afrique-forum-beijing",
-    time: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "4",
-    type: "premium",
-    title: "Contenu Premium",
-    body: "Rapport exclusif : Classement des meilleurs environnements d'investissement en Afrique 2026.",
-    href: "/article/rapport-classement-environnements-investissement-afrique-2026",
-    time: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: "5",
-    type: "article",
-    title: "Analyse publiée",
-    body: "Niamey sous tension : enjeux économiques de la transition politique au Niger.",
-    href: "/article/niamey-tension-enjeux-economiques-transition-politique",
-    time: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: "6",
-    type: "system",
-    title: "NFI Report",
-    body: "Bienvenue ! Configurez vos préférences de notification dans votre profil.",
-    href: "/profile",
-    time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    read: true,
-  },
-];
+const LS_READ    = "nfi-notifs-read";
+const LS_DELETED = "nfi-notifs-deleted";
+
+function loadSet(key: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(key) ?? "[]")); }
+  catch { return new Set(); }
+}
+function saveSet(key: string, s: Set<string>) {
+  try { localStorage.setItem(key, JSON.stringify([...s])); } catch { /* noop */ }
+}
+
+// ─── Convertit un article Sanity en Notification ──────────────────────────────
+
+function articleToNotif(a: SanityArticle, deleted: Set<string>): Notification | null {
+  const id = `art-${a.slug.current}`;
+  if (deleted.has(id)) return null;
+  const read = loadSet(LS_READ).has(id);
+  return {
+    id,
+    type: a.isPremium ? "premium" : "article",
+    title: a.isPremium ? "Contenu Premium" : "Nouvel article publié",
+    body: a.title,
+    href: `/article/${a.slug.current}`,
+    time: new Date(a.publishedAt),
+    read,
+  };
+}
+
+// Notification système unique (bienvenue) — toujours présente sauf si supprimée
+const SYSTEM_NOTIF: Omit<Notification, "read"> = {
+  id: "sys-welcome",
+  type: "system",
+  title: "NFI Report",
+  body: "Bienvenue ! Configurez vos préférences de notification dans votre profil.",
+  href: "/profile",
+  time: new Date("2026-01-01"),
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,7 +71,8 @@ function formatTime(date: Date): string {
   if (diffH < 24)   return `il y a ${diffH} h`;
   const diffD = Math.floor(diffH / 24);
   if (diffD === 1)  return "Hier";
-  return `il y a ${diffD} j`;
+  if (diffD < 30)   return `il y a ${diffD} j`;
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
 }
 
 const TYPE_CONFIG: Record<NotifType, { icon: React.ElementType; color: string; bg: string }> = {
@@ -116,20 +99,14 @@ function NotifItem({
   const cfg  = TYPE_CONFIG[notif.type];
   const Icon = cfg.icon;
 
-  // Contenu interne partagé entre Link et div
   const inner = (
     <>
-      {/* Unread dot */}
       {!notif.read && (
         <span className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00A651]" />
       )}
-
-      {/* Icône */}
       <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${cfg.bg}`}>
         <Icon size={16} className={cfg.color} />
       </div>
-
-      {/* Texte */}
       <div className="flex-1 min-w-0">
         <p className={`text-xs mb-0.5 font-medium ${notif.read ? "text-gray-400" : cfg.color}`}>
           {notif.title}
@@ -144,13 +121,6 @@ function NotifItem({
           )}
         </div>
       </div>
-
-      {/*
-        Boutons d'action :
-        - pointer-events-none par défaut (évite de bloquer les clics sur le Link quand invisibles)
-        - pointer-events-auto uniquement quand visibles au survol
-        - stopPropagation + preventDefault pour ne pas déclencher la navigation du Link
-      */}
       <div className="shrink-0 flex flex-col gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
         {!notif.read && (
           <button
@@ -176,7 +146,6 @@ function NotifItem({
     notif.read ? "hover:bg-gray-50" : "bg-[#00A651]/[0.04] hover:bg-[#00A651]/[0.08]"
   }`;
 
-  // Si la notification a un lien, on enveloppe tout dans un <Link>
   if (notif.href) {
     return (
       <Link
@@ -189,11 +158,20 @@ function NotifItem({
       </Link>
     );
   }
+  return <div className={sharedClass}>{inner}</div>;
+}
 
-  // Sinon, un simple div non cliquable
+// ─── Skeleton de chargement ───────────────────────────────────────────────────
+
+function NotifSkeleton() {
   return (
-    <div className={sharedClass}>
-      {inner}
+    <div className="flex gap-3 px-4 py-3 animate-pulse">
+      <div className="shrink-0 w-9 h-9 rounded-full bg-gray-100" />
+      <div className="flex-1 space-y-2 py-1">
+        <div className="h-3 bg-gray-100 rounded w-24" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-2 bg-gray-100 rounded w-16" />
+      </div>
     </div>
   );
 }
@@ -201,16 +179,60 @@ function NotifItem({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function NotificationPanel() {
-  const [notifs,  setNotifs]  = useState<Notification[]>(INITIAL_NOTIFS);
+  const [notifs,  setNotifs]  = useState<Notification[]>([]);
   const [open,    setOpen]    = useState(false);
+  const [loading, setLoading] = useState(false);
   const [filter,  setFilter]  = useState<"all" | "unread">("all");
   const panelRef              = useRef<HTMLDivElement>(null);
+  // Pour éviter de re-fetcher si déjà chargé dans cette session
+  const fetchedRef            = useRef(false);
 
-  const unreadCount = notifs.filter((n) => !n.read).length;
+  // ── Charger les notifications depuis Sanity ─────────────────────────────
+  const loadNotifs = useCallback(async (force = false) => {
+    if (fetchedRef.current && !force) return;
+    setLoading(true);
+    fetchedRef.current = true;
 
-  const displayed = filter === "unread"
-    ? notifs.filter((n) => !n.read)
-    : notifs;
+    const deleted = loadSet(LS_DELETED);
+    const readSet = loadSet(LS_READ);
+
+    try {
+      const articles = await getAllArticles();
+      // Limiter aux 15 articles les plus récents
+      const articleNotifs = articles
+        .slice(0, 15)
+        .map((a) => articleToNotif(a, deleted))
+        .filter((n): n is Notification => n !== null)
+        // Appliquer l'état "lu" depuis localStorage
+        .map((n) => ({ ...n, read: readSet.has(n.id) }));
+
+      // Notification système : ajoutée seulement si pas supprimée
+      const sysNotifs: Notification[] = deleted.has(SYSTEM_NOTIF.id)
+        ? []
+        : [{ ...SYSTEM_NOTIF, read: readSet.has(SYSTEM_NOTIF.id) }];
+
+      setNotifs([...articleNotifs, ...sysNotifs]);
+    } catch {
+      // Fallback : notification système seule
+      const deleted = loadSet(LS_DELETED);
+      const readSet = loadSet(LS_READ);
+      setNotifs(
+        deleted.has(SYSTEM_NOTIF.id)
+          ? []
+          : [{ ...SYSTEM_NOTIF, read: readSet.has(SYSTEM_NOTIF.id) }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Charger au montage (pré-fetch discret)
+  useEffect(() => { loadNotifs(); }, [loadNotifs]);
+
+  // Re-fetch à chaque ouverture du panel
+  useEffect(() => {
+    if (open) loadNotifs(true);
+  }, [open, loadNotifs]);
 
   // Fermer au clic extérieur
   useEffect(() => {
@@ -231,16 +253,38 @@ export function NotificationPanel() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
-  const markRead    = (id: string) =>
-    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  // ── Actions ───────────────────────────────────────────────────────────────
 
-  const markAllRead = () =>
+  const markRead = (id: string) => {
+    const s = loadSet(LS_READ);
+    s.add(id);
+    saveSet(LS_READ, s);
+    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllRead = () => {
+    const s = loadSet(LS_READ);
+    notifs.forEach((n) => s.add(n.id));
+    saveSet(LS_READ, s);
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
 
-  const deleteNotif = (id: string) =>
+  const deleteNotif = (id: string) => {
+    const s = loadSet(LS_DELETED);
+    s.add(id);
+    saveSet(LS_DELETED, s);
     setNotifs((prev) => prev.filter((n) => n.id !== id));
+  };
 
-  const clearAll = () => setNotifs([]);
+  const clearAll = () => {
+    const s = loadSet(LS_DELETED);
+    notifs.forEach((n) => s.add(n.id));
+    saveSet(LS_DELETED, s);
+    setNotifs([]);
+  };
+
+  const unreadCount = notifs.filter((n) => !n.read).length;
+  const displayed   = filter === "unread" ? notifs.filter((n) => !n.read) : notifs;
 
   return (
     <div className="relative hidden sm:block" ref={panelRef}>
@@ -252,7 +296,10 @@ export function NotificationPanel() {
         }`}
         aria-label="Notifications"
       >
-        <Bell size={18} />
+        {loading && !open
+          ? <Loader size={18} className="animate-spin text-gray-400" />
+          : <Bell size={18} />
+        }
         {unreadCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-red-500 rounded-full text-white text-[9px] font-bold leading-none">
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -315,7 +362,13 @@ export function NotificationPanel() {
 
           {/* Liste */}
           <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-50">
-            {displayed.length === 0 ? (
+            {loading ? (
+              <>
+                <NotifSkeleton />
+                <NotifSkeleton />
+                <NotifSkeleton />
+              </>
+            ) : displayed.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-6">
                 <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                   <Bell size={20} className="text-gray-400" />
