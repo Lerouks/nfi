@@ -79,6 +79,18 @@ function SubscribePageContent({
     e.preventDefault();
     if (!plan || paymentState === "submitting") return;
 
+    // Validation côté client avant envoi
+    const mobileMoneyMethods = ["orange-money", "wave", "moov"];
+    if (mobileMoneyMethods.includes(paymentMethod) && !phoneNumber.trim()) {
+      setPaymentError("Veuillez entrer votre numéro de téléphone.");
+      return;
+    }
+    const refMethods = ["nita", "amana"];
+    if (refMethods.includes(paymentMethod) && !referenceNumber.trim()) {
+      setPaymentError("Veuillez entrer la référence de votre reçu.");
+      return;
+    }
+
     setPaymentState("submitting");
     setPaymentError(null);
 
