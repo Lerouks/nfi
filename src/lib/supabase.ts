@@ -45,13 +45,20 @@ function getSupabaseClient(): SupabaseClient {
 export const supabase = getSupabaseClient();
 
 // ─── Helper : ignore toutes les requêtes si Supabase n'est pas configuré ─────
-async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>): Promise<T | null> {
-  if (!SUPABASE_READY) return null;
+async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
+  if (!SUPABASE_READY) {
+    console.warn("[Supabase] Non configuré — requête ignorée", label ?? "");
+    return null;
+  }
   try {
     const { data, error } = await fn();
-    if (error) return null;
+    if (error) {
+      console.error("[Supabase] Erreur requête", label ?? "", error);
+      return null;
+    }
     return data;
-  } catch {
+  } catch (err) {
+    console.error("[Supabase] Exception requête", label ?? "", err);
     return null;
   }
 }
@@ -231,7 +238,7 @@ export async function savePaymentRequest(req: {
       })
       .select()
       .single()
-  );
+  , "savePaymentRequest");
 }
 
 /** Récupère les demandes de paiement d'un utilisateur */
