@@ -143,6 +143,21 @@ function ArticlePageContent({
     };
   }, [sanityArticle]);
 
+  // Consommer le quota quand l'article complet est affiché pour la première fois.
+  // Placé AVANT les early returns pour respecter les règles des hooks React.
+  useEffect(() => {
+    if (
+      sanityArticle?.isPremium &&
+      subscription.canAccessPremium &&
+      subscription.tier === "free" &&
+      !quotaConsumedRef.current &&
+      user?.id
+    ) {
+      quotaConsumedRef.current = true;
+      consumePremiumRead(user.id).catch(() => {});
+    }
+  }, [sanityArticle?.isPremium, subscription.canAccessPremium, subscription.tier, user?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
@@ -173,20 +188,6 @@ function ArticlePageContent({
   // que les 2 premiers blocs Sanity, le reste est chargé conditionnellement.
   const isSubscriptionLoading = subscription.isLoading;
   const isPremiumLocked = article.isPremium && !subscription.canAccessPremium && !isSubscriptionLoading;
-
-  // Consommer le quota quand l'article complet est affiché pour la première fois
-  useEffect(() => {
-    if (
-      article.isPremium &&
-      subscription.canAccessPremium &&
-      subscription.tier === "free" &&
-      !quotaConsumedRef.current &&
-      user?.id
-    ) {
-      quotaConsumedRef.current = true;
-      consumePremiumRead(user.id).catch(() => {});
-    }
-  }, [article.isPremium, subscription.canAccessPremium, subscription.tier, user?.id]);
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
