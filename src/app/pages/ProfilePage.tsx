@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import {
   User, BookOpen, CreditCard, Settings, Bell, LogOut,
@@ -7,16 +7,30 @@ import {
 } from "lucide-react";
 import { MOCK_USER, SUBSCRIPTION_PLANS, formatDate } from "../data/mockData";
 import { ArticleCard } from "../components/ArticleCard";
-import { SignInButton, useUser } from "@clerk/clerk-react";
+import { SignInButton, SignOutButton, useUser } from "@clerk/clerk-react";
 import { useSavedArticles } from "../../lib/savedArticles";
 import { useSearchParams } from "react-router";
 import { useClerkActive } from "../../lib/clerkActive";
+import { useSubscription } from "../../lib/subscription";
+import { upsertProfile, getPaymentRequests, type PaymentRequest } from "../../lib/supabase";
 
 type Tab = "overview" | "saved" | "subscription" | "settings";
 
 // ─── Wrapper Clerk (hooks appelés uniquement quand ClerkProvider est actif) ───
 function ProfileWithClerk() {
   const { isSignedIn, user, isLoaded } = useUser();
+  const subscription = useSubscription(isSignedIn && user ? user.id : null);
+
+  // Upsert du profil Supabase à chaque connexion (mise à jour email/avatar)
+  useEffect(() => {
+    if (!isSignedIn || !user) return;
+    upsertProfile({
+      id:         user.id,
+      email:      user.primaryEmailAddress?.emailAddress ?? "",
+      full_name:  user.fullName ?? user.firstName ?? null,
+      avatar_url: user.imageUrl ?? null,
+    }).catch(() => {});
+  }, [isSignedIn, user?.id]);
 
   if (!isLoaded) {
     return (
@@ -27,22 +41,22 @@ function ProfileWithClerk() {
   }
 
   if (!isSignedIn) {
-    return <NotSignedInScreen />;
+    return <NotSignedInScreen clerkActive={true} />;
   }
 
-  // Enrichir MOCK_USER avec les données Clerk réelles
   const clerkUser = {
     ...MOCK_USER,
-    name: user.fullName ?? MOCK_USER.name,
+    name:  user.fullName ?? MOCK_USER.name,
     email: user.primaryEmailAddress?.emailAddress ?? MOCK_USER.email,
     avatar: user.imageUrl ?? MOCK_USER.avatar,
+    id:    user.id,
   };
 
-  return <ProfileContent user={clerkUser} isLoggedIn={true} />;
+  return <ProfileContent user={clerkUser} isLoggedIn={true} subscription={subscription} />;
 }
 
 // ─── Écran non connecté ────────────────────────────────────────────────────────
-function NotSignedInScreen() {
+function NotSignedInScreen({ clerkActive }: { clerkActive: boolean }) {
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl border p-8 max-w-md w-full text-center" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
@@ -54,7 +68,7 @@ function NotSignedInScreen() {
           Connectez-vous pour accéder à votre profil et gérer votre abonnement.
         </p>
         <div className="space-y-3">
-          {CLERK_READY ? (
+          {clerkActive ? (
             <>
               <SignInButton mode="modal">
                 <button className="w-full py-2.5 text-sm text-white font-medium rounded-full" style={{ background: "#00A651" }}>
@@ -68,7 +82,7 @@ function NotSignedInScreen() {
               </SignInButton>
             </>
           ) : (
-            <p className="text-gray-400 text-xs">Auth non configurée</p>
+            <p className="text-gray-400 text-xs">Authentification non configurée</p>
           )}
         </div>
       </div>
@@ -80,20 +94,29 @@ function NotSignedInScreen() {
 export default function ProfilePage() {
   const clerkActive = useClerkActive();
   if (clerkActive) return <ProfileWithClerk />;
-  return <ProfileContent user={MOCK_USER} isLoggedIn={true} />;
+  return <NotSignedInScreen clerkActive={false} />;
 }
 
-// ─── Contenu du profil (design inchangé) ─────────────────────────────────────
+// ─── Contenu du profil ────────────────────────────────────────────────────────
 function ProfileContent({
   user,
   isLoggedIn,
+  subscription,
 }: {
-  user: typeof MOCK_USER;
+  user: typeof MOCK_USER & { id?: string };
   isLoggedIn: boolean;
+  subscription: ReturnType<typeof useSubscription>;
 }) {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get("tab") as Tab) || "overview");
   const { savedArticles } = useSavedArticles();
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRequest[]>([]);
+
+  // Charger l'historique des paiements réels
+  useEffect(() => {
+    if (!user.id || user.id === "u1") return; // skip mock user
+    getPaymentRequests(user.id).then(setPaymentHistory).catch(() => {});
+  }, [user.id]);
 
   // ── Préférences de notifications (état mutable) ──────────────────────────
   const [notifPrefs, setNotifPrefs] = useState([
@@ -229,17 +252,33 @@ function ProfileContent({
                   <Star size={14} className="text-[#00A651]" />
                   <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Mon abonnement</span>
                 </div>
-                <p className="text-white font-bold text-lg">{user.subscription}</p>
-                <p className="text-gray-400 text-xs mb-3">
-                  Expire le {formatDate(user.subscriptionExpiry)}
-                </p>
-                <div className="w-full bg-white/10 rounded-full h-1.5 mb-3">
-                  <div className="h-1.5 rounded-full" style={{ width: "65%", background: "#00A651" }} />
-                </div>
-                <p className="text-gray-400 text-xs mb-4">65% de la période utilisée</p>
+                {subscription.isLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-5 bg-white/10 rounded w-24" />
+                    <div className="h-3 bg-white/10 rounded w-32" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-white font-bold text-lg capitalize">{subscription.tier}</p>
+                    {subscription.profile?.subscription_expires_at ? (
+                      <p className="text-gray-400 text-xs mb-3">
+                        Expire le {formatDate(subscription.profile.subscription_expires_at)}
+                      </p>
+                    ) : (
+                      <p className="text-gray-400 text-xs mb-3">
+                        {subscription.tier === "free" ? "Plan gratuit" : "Abonnement actif"}
+                      </p>
+                    )}
+                    {subscription.tier === "free" && (
+                      <p className="text-gray-400 text-xs mb-3">
+                        Lectures premium restantes ce mois : <span className="text-white font-semibold">{subscription.premiumReadsLeft}</span>/3
+                      </p>
+                    )}
+                  </>
+                )}
                 <button
                   onClick={() => switchTab("subscription")}
-                  className="w-full py-2 text-xs text-white font-medium rounded-lg text-center"
+                  className="w-full py-2 text-xs text-white font-medium rounded-lg text-center mt-3"
                   style={{ background: "#00A651" }}>
                   Gérer l'abonnement
                 </button>
@@ -304,72 +343,110 @@ function ProfileContent({
 
             {/* Current plan */}
             <div className="bg-white rounded-xl border p-6 mb-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-gray-900">{user.subscription}</span>
-                    <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white bg-[#00A651]">
-                      <CheckCircle2 size={10} /> Actif
-                    </span>
-                  </div>
-                  <p className="text-gray-500 text-sm mt-0.5">
-                    Renouvellement automatique le {formatDate(user.subscriptionExpiry)}
-                  </p>
+              {subscription.isLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-6 bg-gray-100 rounded w-32" />
+                  <div className="h-4 bg-gray-100 rounded w-48" />
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-black text-gray-900">5 000</p>
-                  <p className="text-xs text-gray-400">FCFA / mois</p>
-                </div>
-              </div>
-
-              {plan && (
-                <div className="border-t pt-4" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Inclus dans votre plan</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {plan.features.map((f) => (
-                      <div key={f} className="flex items-center gap-2">
-                        <CheckCircle2 size={12} className="text-[#00A651] shrink-0 mt-0.5" />
-                        <span className="text-xs text-gray-700">{f}</span>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-gray-900 capitalize">{subscription.tier}</span>
+                        <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white ${
+                          subscription.tier === "free" ? "bg-gray-400" : "bg-[#00A651]"
+                        }`}>
+                          <CheckCircle2 size={10} /> {subscription.tier === "free" ? "Gratuit" : "Actif"}
+                        </span>
                       </div>
-                    ))}
+                      <p className="text-gray-500 text-sm mt-0.5">
+                        {subscription.profile?.subscription_expires_at
+                          ? `Expire le ${formatDate(subscription.profile.subscription_expires_at)}`
+                          : subscription.tier === "free"
+                          ? "Lectures premium : " + subscription.premiumReadsLeft + "/3 ce mois"
+                          : "Abonnement actif"}
+                      </p>
+                    </div>
+                    {subscription.tier !== "free" && (
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-gray-900">
+                          {subscription.tier === "standard" ? "5 000" : "10 000"}
+                        </p>
+                        <p className="text-xs text-gray-400">FCFA / mois</p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
 
-              <div className="flex gap-3 mt-5">
-                <Link to="/subscribe"
-                  className="flex-1 py-2.5 text-sm font-medium text-white rounded-full text-center transition hover:opacity-90"
-                  style={{ background: "#00A651" }}>
-                  Passer en Premium
-                </Link>
-                <button className="flex-1 py-2.5 text-sm font-medium text-gray-600 rounded-full border border-gray-200 hover:bg-gray-50 transition">
-                  Annuler l'abonnement
-                </button>
-              </div>
+                  {(() => {
+                    const activePlan = SUBSCRIPTION_PLANS.find((p) => p.name.toLowerCase() === subscription.tier);
+                    return activePlan ? (
+                      <div className="border-t pt-4" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Inclus dans votre plan</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {activePlan.features.map((f) => (
+                            <div key={f} className="flex items-center gap-2">
+                              <CheckCircle2 size={12} className="text-[#00A651] shrink-0 mt-0.5" />
+                              <span className="text-xs text-gray-700">{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  <div className="flex gap-3 mt-5">
+                    {subscription.tier === "free" ? (
+                      <Link to="/subscribe"
+                        className="flex-1 py-2.5 text-sm font-medium text-white rounded-full text-center transition hover:opacity-90"
+                        style={{ background: "#00A651" }}>
+                        Passer à l'abonnement
+                      </Link>
+                    ) : (
+                      <a href="mailto:contact@nfireport.com?subject=Annulation abonnement"
+                        className="flex-1 py-2.5 text-sm font-medium text-gray-600 rounded-full border border-gray-200 hover:bg-gray-50 transition text-center">
+                        Demander une annulation
+                      </a>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Billing history */}
+            {/* Payment history — réel depuis Supabase */}
             <div className="bg-white rounded-xl border p-6" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <h3 className="text-gray-900 font-semibold text-sm mb-4">Historique de paiements</h3>
-              <div className="space-y-3">
-                {[
-                  { date: "01 Fév 2026", amount: "5 000 FCFA", status: "Payé", method: "Orange Money" },
-                  { date: "01 Jan 2026", amount: "5 000 FCFA", status: "Payé", method: "Orange Money" },
-                  { date: "01 Déc 2025", amount: "5 000 FCFA", status: "Payé", method: "Orange Money" },
-                ].map(({ date, amount, status, method }) => (
-                  <div key={date} className="flex items-center justify-between py-2 border-b last:border-0"
-                    style={{ borderColor: "rgba(0,0,0,0.06)" }}>
-                    <div>
-                      <p className="text-sm text-gray-900">{date}</p>
-                      <p className="text-xs text-gray-400">{method}</p>
+              <h3 className="text-gray-900 font-semibold text-sm mb-4">Historique des demandes de paiement</h3>
+              {paymentHistory.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Aucun paiement enregistré.</p>
+              ) : (
+                <div className="space-y-3">
+                  {paymentHistory.map((pr) => (
+                    <div key={pr.id} className="flex items-center justify-between py-2 border-b last:border-0"
+                      style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p className="text-sm text-gray-900">{formatDate(pr.created_at)}</p>
+                        <p className="text-xs text-gray-400">{pr.payment_method} · {pr.plan_name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Intl.NumberFormat("fr-FR").format(pr.amount)} {pr.currency}
+                        </p>
+                        <span className={`text-xs font-medium ${
+                          pr.status === "verified" ? "text-green-600"
+                          : pr.status === "pending"  ? "text-amber-600"
+                          : pr.status === "rejected" ? "text-red-600"
+                          : "text-gray-500"
+                        }`}>
+                          {pr.status === "verified" ? "Vérifié"
+                          : pr.status === "pending"  ? "En attente"
+                          : pr.status === "rejected" ? "Rejeté"
+                          : "Remboursé"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{amount}</p>
-                      <span className="text-xs text-green-600 font-medium">{status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -448,10 +525,10 @@ function ProfileContent({
               <h3 className="text-gray-900 font-semibold text-sm mb-4 flex items-center gap-2">
                 <Shield size={14} className="text-[#00A651]" /> Sécurité
               </h3>
-              <button className="w-full text-left px-4 py-3 rounded-lg border hover:bg-gray-50 transition text-sm text-gray-700"
-                style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-                Changer le mot de passe
-              </button>
+              <p className="text-xs text-gray-500">
+                La gestion du mot de passe est assurée par votre fournisseur d'authentification.
+                Connectez-vous via <a href="https://clerk.com" className="text-[#00A651] hover:underline" target="_blank" rel="noopener">Clerk</a> pour modifier vos informations de sécurité.
+              </p>
             </div>
 
             {/* Danger zone */}
@@ -459,14 +536,17 @@ function ProfileContent({
               <h3 className="text-red-700 font-semibold text-sm mb-2 flex items-center gap-2">
                 <LogOut size={14} /> Zone de danger
               </h3>
-              <p className="text-red-600 text-xs mb-3">Ces actions sont irréversibles.</p>
+              <p className="text-red-600 text-xs mb-3">La déconnexion met fin à votre session.</p>
               <div className="flex gap-3">
-                <button className="px-4 py-2 text-xs text-red-600 border border-red-200 rounded-full hover:bg-red-100 transition">
-                  Se déconnecter
-                </button>
-                <button className="px-4 py-2 text-xs text-white bg-red-500 rounded-full hover:bg-red-600 transition">
-                  Supprimer le compte
-                </button>
+                <SignOutButton>
+                  <button className="px-4 py-2 text-xs text-red-600 border border-red-200 rounded-full hover:bg-red-100 transition">
+                    Se déconnecter
+                  </button>
+                </SignOutButton>
+                <a href="mailto:contact@nfireport.com?subject=Suppression de compte"
+                  className="px-4 py-2 text-xs text-white bg-red-500 rounded-full hover:bg-red-600 transition">
+                  Demander la suppression du compte
+                </a>
               </div>
             </div>
           </div>

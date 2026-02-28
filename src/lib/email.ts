@@ -63,7 +63,7 @@
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * 3. Dans Supabase → Edge Functions → send-welcome-email → Secrets :
- *    Ajouter : RESEND_API_KEY = re_PWxzYpWS_6GqYosQVPZ8r9nNFHt2NsF7D
+ *    Ajouter : RESEND_API_KEY = <votre_clé_api_resend>
  *
  * 4. Copier l'URL de l'Edge Function et la mettre dans .env :
  *    VITE_EDGE_EMAIL_URL=https://xxxx.supabase.co/functions/v1/send-welcome-email

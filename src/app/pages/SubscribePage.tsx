@@ -3,9 +3,12 @@ import { Link } from "react-router";
 import {
   Star, CheckCircle2, CreditCard, Lock, Shield,
   ChevronRight, ChevronDown, BarChart2, Globe, Bell, Download,
-  Users, Award,
+  Users, Award, Loader, Clock,
 } from "lucide-react";
 import { SUBSCRIPTION_PLANS, formatPrice } from "../data/mockData";
+import { savePaymentRequest } from "../../lib/supabase";
+import { useUser } from "@clerk/clerk-react";
+import { useClerkActive } from "../../lib/clerkActive";
 
 const FAQ = [
   {
@@ -30,12 +33,35 @@ const FAQ = [
   },
 ];
 
+// ─── Wrapper Clerk — lit l'utilisateur uniquement quand ClerkProvider est actif ─
+function SubscribePageWithClerk() {
+  const { user, isSignedIn } = useUser();
+  return <SubscribePageContent user={user} isSignedIn={!!isSignedIn} />;
+}
+
 export default function SubscribePage() {
+  const clerkActive = useClerkActive();
+  if (clerkActive) return <SubscribePageWithClerk />;
+  return <SubscribePageContent user={null} isSignedIn={false} />;
+}
+
+function SubscribePageContent({
+  user,
+  isSignedIn,
+}: {
+  user: ReturnType<typeof useUser>["user"];
+  isSignedIn: boolean;
+}) {
+
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("orange-money");
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  // "idle" | "submitting" | "pending" | "error"
+  const [paymentState, setPaymentState] = useState<"idle" | "submitting" | "pending" | "error">("idle");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
   const [cardData, setCardData] = useState({ number: "", expiry: "", cvv: "", name: "" });
 
   const plan = SUBSCRIPTION_PLANS.find((p) => p.id === selectedPlan);
@@ -44,30 +70,63 @@ export default function SubscribePage() {
     if (planId === "free") return;
     setSelectedPlan(planId);
     setShowPayment(true);
+    setPaymentState("idle");
+    setPaymentError(null);
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
-  const handlePayment = (e: React.FormEvent) => {
+  const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "instant" });
-    setTimeout(() => setPaymentSuccess(true), 1500);
+    if (!plan || paymentState === "submitting") return;
+
+    setPaymentState("submitting");
+    setPaymentError(null);
+
+    const saved = await savePaymentRequest({
+      userId:          isSignedIn && user ? user.id          : "anonymous",
+      userEmail:       isSignedIn && user ? (user.primaryEmailAddress?.emailAddress ?? "") : "",
+      userName:        isSignedIn && user ? (user.fullName ?? user.firstName ?? null) : null,
+      planId:          plan.id,
+      planName:        plan.name,
+      amount:          plan.price,
+      paymentMethod,
+      phoneNumber:     phoneNumber || undefined,
+      referenceNumber: referenceNumber || undefined,
+    });
+
+    if (saved) {
+      setPaymentState("pending");
+      window.scrollTo({ top: 0, behavior: "instant" });
+    } else {
+      setPaymentState("error");
+      setPaymentError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
+    }
   };
 
-  if (paymentSuccess && plan) {
+  if (paymentState === "pending" && plan) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl border p-8 sm:p-12 max-w-lg w-full text-center shadow-lg"
           style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle2 size={32} className="text-[#00A651]" />
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <Clock size={32} className="text-amber-500" />
           </div>
-          <h1 className="text-gray-900 text-2xl mb-2">Abonnement activé !</h1>
+          <h1 className="text-gray-900 text-2xl mb-2">Demande enregistrée</h1>
           <p className="text-gray-600 mb-1">
-            Bienvenue dans la famille <strong>NFI REPORT {plan.name}</strong>.
+            Votre demande d'abonnement <strong>NFI REPORT {plan.name}</strong> a été reçue.
           </p>
-          <p className="text-gray-500 text-sm mb-8">
-            Votre accès premium est désormais actif. Un email de confirmation vous a été envoyé.
+          <p className="text-gray-500 text-sm mb-4">
+            Notre équipe va vérifier votre paiement et activer votre accès sous <strong>24h</strong>.<br />
+            Vous recevrez une confirmation par email.
           </p>
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6 text-left text-sm text-amber-800">
+            <p className="font-semibold mb-1">Que se passe-t-il maintenant ?</p>
+            <ol className="list-decimal list-inside space-y-1 text-xs">
+              <li>Notre équipe vérifie votre paiement</li>
+              <li>Votre compte est mis à jour manuellement</li>
+              <li>Vous recevez un email de confirmation</li>
+            </ol>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link to="/"
               className="flex-1 py-2.5 text-sm font-medium text-[#00A651] border-2 border-[#00A651] rounded-full hover:bg-[#00A651] hover:text-white transition-all text-center">
@@ -215,6 +274,8 @@ export default function SubscribePage() {
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">Votre numéro de téléphone</label>
                         <input
                           type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
                           placeholder="+227 90 00 00 00"
                           className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
                           style={{ borderColor: "rgba(0,0,0,0.15)" }}
@@ -225,6 +286,8 @@ export default function SubscribePage() {
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">Numéro de référence du reçu</label>
                         <input
                           type="text"
+                          value={referenceNumber}
+                          onChange={(e) => setReferenceNumber(e.target.value)}
                           placeholder="Ex : NIT-2026-XXXXX"
                           className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
                           style={{ borderColor: "rgba(0,0,0,0.15)" }}
@@ -240,14 +303,23 @@ export default function SubscribePage() {
                       <label className="block text-xs font-medium text-gray-700 mb-1.5">Numéro de téléphone</label>
                       <input
                         type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="+227 90 00 00 00"
                         className="w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                         required
                       />
                       <p className="text-xs text-gray-500 mt-1.5">
-                        Vous recevrez un code de validation par SMS.
+                        Notre équipe vérifiera et activera votre accès sous 24h.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {paymentState === "error" && paymentError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+                      <span className="text-xs text-red-600">{paymentError}</span>
                     </div>
                   )}
 
@@ -255,16 +327,20 @@ export default function SubscribePage() {
                   <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                     <Shield size={14} className="text-[#00A651] shrink-0" />
                     <p className="text-xs text-gray-500">
-                      Paiement 100% sécurisé. Vos données sont chiffrées SSL.
+                      Vos informations sont transmises de manière sécurisée.
                     </p>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 text-white font-semibold rounded-full transition hover:opacity-90 flex items-center justify-center gap-2"
+                    disabled={paymentState === "submitting"}
+                    className="w-full py-3 text-white font-semibold rounded-full transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-70"
                     style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}>
-                    <Lock size={14} />
-                    Payer {formatPrice(plan.price)} {plan.currency}
+                    {paymentState === "submitting" ? (
+                      <><Loader size={14} className="animate-spin" /> Envoi en cours…</>
+                    ) : (
+                      <><Lock size={14} /> Envoyer ma demande — {formatPrice(plan.price)} {plan.currency}</>
+                    )}
                   </button>
                 </form>
               </div>

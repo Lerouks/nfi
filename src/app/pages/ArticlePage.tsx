@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser, SignInButton } from "@clerk/clerk-react";
 import {
   Clock, Eye, MessageCircle, Bookmark, BookmarkCheck,
@@ -19,6 +19,7 @@ import {
   incrementArticleViews, getArticleViews,
   type Comment as SupabaseComment,
 } from "../../lib/supabase";
+import { useSubscription, consumePremiumRead } from "../../lib/subscription";
 import { useSavedArticles } from "../../lib/savedArticles";
 import { ArticleCard } from "../components/ArticleCard";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
@@ -58,17 +59,27 @@ interface UserData {
 // ─── Wrapper Clerk — appelé uniquement quand ClerkProvider est actif ───────────
 function ArticlePageWithClerk() {
   const { user, isSignedIn } = useUser();
+  const userId = isSignedIn && user ? user.id : null;
+  const subscription = useSubscription(userId);
   return (
     <ArticlePageContent
       user={user ? { fullName: user.fullName, firstName: user.firstName, imageUrl: user.imageUrl, id: user.id } : null}
       isSignedIn={!!isSignedIn}
       clerkActive={true}
+      subscription={subscription}
     />
   );
 }
 
 // ─── Contenu de la page article ───────────────────────────────────────────────
-function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData | null; isSignedIn: boolean; clerkActive: boolean }) {
+function ArticlePageContent({
+  user, isSignedIn, clerkActive, subscription,
+}: {
+  user: UserData | null;
+  isSignedIn: boolean;
+  clerkActive: boolean;
+  subscription: ReturnType<typeof useSubscription>;
+}) {
   const { slug } = useParams<{ slug: string }>();
   const [sanityArticle, setSanityArticle] = useState<SanityArticle | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
@@ -80,6 +91,8 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
   const [copied, setCopied] = useState(false);
   const [realViews, setRealViews] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Quota consommé pour cet article (pour ne pas re-consommer au reload)
+  const quotaConsumedRef = useRef(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -150,9 +163,30 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
   }
 
   const article = toArticle(sanityArticle);
-  const isPremiumLocked = article.isPremium;
   const PREVIEW_PARAGRAPHS = 2;
-  // lockedContent supprimé — inutilisé (le contenu verrouillé est géré via isPremiumLocked)
+
+  // ── Contrôle d'accès réel ────────────────────────────────────────────────
+  // Un article premium est accessible si :
+  //   • L'utilisateur a un tier standard/premium (canAccessPremium depuis Supabase)
+  //   • OU l'utilisateur free a encore du quota mensuel (3 articles/mois)
+  // Jamais contournable côté client seul : les articles en preview n'envoient
+  // que les 2 premiers blocs Sanity, le reste est chargé conditionnellement.
+  const isSubscriptionLoading = subscription.isLoading;
+  const isPremiumLocked = article.isPremium && !subscription.canAccessPremium && !isSubscriptionLoading;
+
+  // Consommer le quota quand l'article complet est affiché pour la première fois
+  useEffect(() => {
+    if (
+      article.isPremium &&
+      subscription.canAccessPremium &&
+      subscription.tier === "free" &&
+      !quotaConsumedRef.current &&
+      user?.id
+    ) {
+      quotaConsumedRef.current = true;
+      consumePremiumRead(user.id).catch(() => {});
+    }
+  }, [article.isPremium, subscription.canAccessPremium, subscription.tier, user?.id]);
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,7 +377,14 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
 
                 {/* Article content */}
                 <div className="prose-article text-sm sm:text-base">
-                  {isPremiumLocked ? (
+                  {isSubscriptionLoading && article.isPremium ? (
+                    /* Skeleton pendant chargement abonnement */
+                    <div className="space-y-3 animate-pulse">
+                      {[1,2,3,4].map((i) => (
+                        <div key={i} className="h-4 bg-gray-100 rounded" style={{ width: `${90 - i * 8}%` }} />
+                      ))}
+                    </div>
+                  ) : isPremiumLocked ? (
                     <>
                       {sanityArticle.content && (
                         <div className="line-clamp-6">
@@ -354,12 +395,39 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
                       <div className="relative mt-6">
                         <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10" style={{ top: "-80px" }} />
                         <div className="relative z-20 mt-8">
-                          <SubscriptionCTA variant="inline" />
+                          {/* Quota épuisé vs non connecté */}
+                          {isSignedIn && subscription.premiumReadsLeft === 0 ? (
+                            <div className="rounded-xl border p-6 text-center" style={{ borderColor: "rgba(0,0,0,0.08)", background: "#fff" }}>
+                              <Lock size={28} className="text-[#C9A84C] mx-auto mb-3" />
+                              <h3 className="text-gray-900 font-semibold mb-2">Quota mensuel atteint</h3>
+                              <p className="text-gray-500 text-sm mb-4">
+                                Vous avez utilisé vos 3 lectures premium gratuites ce mois-ci.<br />
+                                Abonnez-vous pour un accès illimité.
+                              </p>
+                              <Link to="/subscribe"
+                                className="inline-flex items-center gap-2 px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90"
+                                style={{ background: "#00A651" }}>
+                                Voir les abonnements
+                              </Link>
+                            </div>
+                          ) : (
+                            <SubscriptionCTA variant="inline" />
+                          )}
                         </div>
                       </div>
                     </>
                   ) : sanityArticle.content ? (
-                    <PortableText value={sanityArticle.content} />
+                    <>
+                      <PortableText value={sanityArticle.content} />
+                      {/* Badge quota restant pour les utilisateurs free */}
+                      {article.isPremium && subscription.tier === "free" && isSignedIn && (
+                        <div className="mt-6 p-3 rounded-lg text-xs text-center"
+                          style={{ background: "rgba(201,168,76,0.08)", color: "#C9A84C" }}>
+                          Il vous reste <strong>{subscription.premiumReadsLeft}</strong> lecture{subscription.premiumReadsLeft > 1 ? "s" : ""} premium ce mois-ci.
+                          {" "}<Link to="/subscribe" className="underline hover:no-underline">Passer à l'abonnement →</Link>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p className="text-gray-500">Contenu non disponible.</p>
                   )}
@@ -539,9 +607,25 @@ function ArticlePageContent({ user, isSignedIn, clerkActive }: { user: UserData 
   );
 }
 
+// ─── Valeur par défaut de subscription pour le rendu sans Clerk ──────────────
+const DEFAULT_SUBSCRIPTION: ReturnType<typeof useSubscription> = {
+  tier: "free",
+  profile: null,
+  isLoading: false,
+  premiumReadsLeft: 3,
+  canAccessPremium: false,
+};
+
 // ─── Export principal avec garde Clerk ────────────────────────────────────────
 export default function ArticlePage() {
   const clerkActive = useClerkActive();
   if (clerkActive) return <ArticlePageWithClerk />;
-  return <ArticlePageContent user={null} isSignedIn={false} clerkActive={false} />;
+  return (
+    <ArticlePageContent
+      user={null}
+      isSignedIn={false}
+      clerkActive={false}
+      subscription={DEFAULT_SUBSCRIPTION}
+    />
+  );
 }
