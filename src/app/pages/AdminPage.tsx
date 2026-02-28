@@ -37,6 +37,30 @@ function AdminWithClerk() {
 function AdminContent({ userId }: { userId: string | undefined }) {
   const [tab, setTab] = useState<"payments" | "subscribers">("payments");
 
+  // Mode configuration : VITE_ADMIN_IDS non défini → afficher l'ID pour setup
+  if (ADMIN_IDS.length === 0 && userId) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border p-8 max-w-md w-full text-center shadow-sm" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+          <Shield size={32} className="text-[#00A651] mx-auto mb-4" />
+          <h1 className="text-gray-900 text-lg font-bold mb-2">Configuration admin</h1>
+          <p className="text-gray-500 text-sm mb-4">
+            Copiez votre ID ci-dessous et ajoutez-le dans <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">.env</code>
+          </p>
+          <div className="bg-gray-50 rounded-xl p-4 mb-4 text-left">
+            <p className="text-xs text-gray-400 mb-1">Votre Clerk user ID :</p>
+            <p className="font-mono text-sm text-gray-900 break-all select-all">{userId}</p>
+          </div>
+          <div className="bg-blue-50 rounded-xl p-4 text-left">
+            <p className="text-xs text-gray-500 font-medium mb-1">Ajoutez dans <code className="text-xs">.env</code> :</p>
+            <p className="font-mono text-xs text-blue-700 break-all select-all">VITE_ADMIN_IDS={userId}</p>
+          </div>
+          <p className="text-xs text-gray-400 mt-4">Puis redémarrez le serveur (<code className="bg-gray-100 px-1 rounded">npm run dev</code>)</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAdmin(userId)) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
