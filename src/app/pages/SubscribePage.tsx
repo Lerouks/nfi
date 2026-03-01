@@ -54,6 +54,7 @@ function SubscribePageContent({
 }) {
 
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("orange-money");
@@ -70,9 +71,12 @@ function SubscribePageContent({
   // Codes promo disponibles : code → réduction (0.15 = -15%)
   const PROMO_CODES: Record<string, number> = { "NFIREPORT1": 0.15 };
 
-  const plan = SUBSCRIPTION_PLANS.find((p) => p.id === selectedPlan);
+  const basePlanId = selectedPlan?.replace("-yearly", "") ?? null;
+  const plan = SUBSCRIPTION_PLANS.find((p) => p.id === basePlanId);
+  const isYearlySelected = selectedPlan?.endsWith("-yearly") ?? false;
+  const basePrice = plan ? (isYearlySelected ? plan.price * 10 : plan.price) : 0;
   const discount = promoApplied ? (PROMO_CODES[promoInput.toUpperCase()] ?? 0) : 0;
-  const finalPrice = plan ? Math.round(plan.price * (1 - discount)) : 0;
+  const finalPrice = plan ? Math.round(basePrice * (1 - discount)) : 0;
 
   const handleApplyPromo = () => {
     const code = promoInput.trim().toUpperCase();
@@ -93,7 +97,8 @@ function SubscribePageContent({
 
   const handleSubscribe = (planId: string) => {
     if (planId === "free") return;
-    setSelectedPlan(planId);
+    const effectiveId = billingPeriod === "yearly" ? `${planId}-yearly` : planId;
+    setSelectedPlan(effectiveId);
     setShowPayment(true);
     setPaymentState("idle");
     setPaymentError(null);
@@ -123,8 +128,8 @@ function SubscribePageContent({
       userId:          isSignedIn && user ? user.id          : "anonymous",
       userEmail:       isSignedIn && user ? (user.primaryEmailAddress?.emailAddress ?? "") : "",
       userName:        isSignedIn && user ? (user.fullName ?? user.firstName ?? null) : null,
-      planId:          plan.id,
-      planName:        plan.name,
+      planId:          selectedPlan ?? plan.id,
+      planName:        `${plan.name}${isYearlySelected ? " (Annuel)" : ""}`,
       amount:          finalPrice,
       paymentMethod,
       phoneNumber:     phoneNumber || undefined,
@@ -426,7 +431,7 @@ function SubscribePageContent({
                 <h3 className="text-sm font-semibold mb-4 text-gray-300 uppercase tracking-wider">Récapitulatif</h3>
                 <div className="mb-4">
                   <p className="text-[#D4A017] font-bold text-lg">{plan.name}</p>
-                  <p className="text-gray-400 text-xs">{plan.period}</p>
+                  <p className="text-gray-400 text-xs">{isYearlySelected ? "/ an · 2 mois offerts" : plan.period}</p>
                 </div>
                 <div className="border-t border-white/10 pt-4 mb-4">
                   <div className="space-y-2">
@@ -455,7 +460,7 @@ function SubscribePageContent({
                     <span className="text-gray-400 text-sm">Total</span>
                     <div className="text-right">
                       <p className="text-white font-bold text-xl">{formatPrice(finalPrice)}</p>
-                      <p className="text-gray-500 text-xs">{plan.currency} {plan.period}</p>
+                      <p className="text-gray-500 text-xs">{plan.currency} {isYearlySelected ? "/ an" : plan.period}</p>
                     </div>
                   </div>
                 </div>
@@ -509,6 +514,36 @@ function SubscribePageContent({
           <div className="text-center mb-10">
             <h2 className="text-gray-900 text-2xl sm:text-3xl mb-2">Choisissez votre plan</h2>
             <p className="text-gray-500 text-sm">Sans engagement · Annulation à tout moment</p>
+
+            {/* Billing toggle */}
+            <div className="inline-flex items-center mt-6 p-1 rounded-full bg-gray-100">
+              <button
+                onClick={() => setBillingPeriod("monthly")}
+                className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
+                  billingPeriod === "monthly"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Mensuel
+              </button>
+              <button
+                onClick={() => setBillingPeriod("yearly")}
+                className={`px-5 py-2 text-sm font-medium rounded-full transition-all flex items-center gap-2 ${
+                  billingPeriod === "yearly"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Annuel
+                <span className="bg-[#00A651] text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                  −17%
+                </span>
+              </button>
+            </div>
+            {billingPeriod === "yearly" && (
+              <p className="text-[#00A651] text-xs mt-2 font-medium">2 mois offerts avec l'abonnement annuel</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -530,12 +565,22 @@ function SubscribePageContent({
                 <div className="p-6">
                   <h3 className="text-gray-900 font-bold text-lg mb-1">{plan.name}</h3>
                   <div className="flex items-end gap-1 mb-1">
-                    <span className="text-3xl font-black text-gray-900">{formatPrice(plan.price)}</span>
+                    <span className="text-3xl font-black text-gray-900">
+                      {formatPrice(plan.id === "free" ? 0 : billingPeriod === "yearly" ? plan.price * 10 : plan.price)}
+                    </span>
                     <span className="text-gray-400 text-sm pb-0.5">{plan.currency}</span>
                   </div>
-                  <p className="text-gray-500 text-xs mb-5">{plan.period}</p>
+                  <p className="text-gray-500 text-xs mb-1">
+                    {plan.id === "free" ? plan.period : billingPeriod === "yearly" ? "/ an" : plan.period}
+                  </p>
+                  {billingPeriod === "yearly" && plan.id !== "free" && (
+                    <p className="text-[#00A651] text-xs mb-4 font-medium">
+                      soit {formatPrice(plan.price)} {plan.currency}/mois · 2 mois offerts
+                    </p>
+                  )}
+                  {(billingPeriod === "monthly" || plan.id === "free") && <div className="mb-4" />}
 
-                  <ul className="space-y-2.5 mb-6">
+                  <ul className="space-y-2.5 mb-6 mt-0">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2">
                         <CheckCircle2 size={14} className="text-[#00A651] shrink-0 mt-0.5" />
