@@ -41,8 +41,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     // Évite les warnings "preloaded but not used" pour les chunks chargés en lazy
     modulePreload: {
-      resolveDependencies: (filename, deps) =>
-        deps.filter((d) => !d.includes('vendor-recharts') && !d.includes('vendor-clerk') && !d.includes('vendor-analytics')),
+      resolveDependencies: (_filename, deps) =>
+        deps.filter(
+          (d) =>
+            !d.includes('vendor-recharts') &&
+            !d.includes('vendor-clerk') &&
+            !d.includes('vendor-analytics') &&
+            !d.includes('/sentry-')   // chunk sentry init (CDN async → utilisé après 5s)
+        ),
     },
     rollupOptions: {
       output: {
