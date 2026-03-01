@@ -535,23 +535,71 @@ export async function getAllArticleViews(): Promise<Record<string, number>> {
   );
 }
 // ─── Données publiques dynamiques (market_data, site_config) ─────────────────
+//
+// Circuit-breaker : si la table est introuvable (HTTP 404 / PGRST200),
+// on stocke un flag localStorage pendant 24h et on court-circuite toutes
+// les requêtes suivantes sans émettre de fetch → plus de rouge dans la console.
+// Dès que la table est créée, la première requête réussit et efface le flag.
+
+const CB_TTL = 24 * 60 * 60 * 1000; // 24 heures
+const _cbOpen = new Set<string>();   // cache in-memory (évite de relire localStorage)
+
+function cbIsOpen(table: string): boolean {
+  if (_cbOpen.has(table)) return true;
+  try {
+    const raw = localStorage.getItem(`__nfi_cb_${table}`);
+    if (!raw) return false;
+    const { at } = JSON.parse(raw) as { at: number };
+    if (Date.now() - at < CB_TTL) { _cbOpen.add(table); return true; }
+    localStorage.removeItem(`__nfi_cb_${table}`); // TTL expiré → on réessaie
+  } catch { /* localStorage indisponible */ }
+  return false;
+}
+
+function cbOpen(table: string): void {
+  _cbOpen.add(table);
+  try { localStorage.setItem(`__nfi_cb_${table}`, JSON.stringify({ at: Date.now() })); } catch {}
+}
+
+function cbClose(table: string): void {
+  _cbOpen.delete(table);
+  try { localStorage.removeItem(`__nfi_cb_${table}`); } catch {}
+}
+
+// Codes d'erreur PostgREST indiquant que la table n'existe pas encore
+const TABLE_MISSING_CODES = new Set(['PGRST200', '42P01', 'PGRST301']);
 
 /** Récupère les données de marché depuis Supabase (lues par le ticker Navbar) */
 export async function getMarketData(): Promise<MarketItem[]> {
-  const data = await safeQuery(
-    () => supabase.from("market_data").select("*").eq("is_active", true).order("type").order("display_order"),
-    "market_data"
-  );
-  return (data as MarketItem[] | null) ?? [];
+  if (!SUPABASE_READY || cbIsOpen('market_data')) return [];
+  try {
+    const { data, error } = await supabase
+      .from("market_data").select("*").eq("is_active", true).order("type").order("display_order");
+    if (error) {
+      if (TABLE_MISSING_CODES.has((error as any).code)) cbOpen('market_data');
+      else console.warn("[Supabase] market_data –", error);
+      return [];
+    }
+    cbClose('market_data');
+    return (data as MarketItem[]) ?? [];
+  } catch { return []; }
 }
 
 /** Récupère les sections de navigation depuis Supabase */
 export async function getNavSections(): Promise<NavSection[]> {
-  const data = await safeQuery(
-    () => supabase.from("site_config").select("value").eq("key", "nav_sections").single(),
-    "site_config[nav_sections]"
-  );
-  return ((data as { value: NavSection[] } | null)?.value) ?? [];
+  if (!SUPABASE_READY || cbIsOpen('site_config')) return [];
+  try {
+    const { data, error } = await supabase
+      .from("site_config").select("value").eq("key", "nav_sections").single();
+    if (error) {
+      if (TABLE_MISSING_CODES.has((error as any).code)) cbOpen('site_config');
+      else if ((error as any).code !== 'PGRST116') // PGRST116 = 0 rows → table existe mais vide
+        console.warn("[Supabase] site_config –", error);
+      return [];
+    }
+    cbClose('site_config');
+    return ((data as { value: NavSection[] } | null)?.value) ?? [];
+  } catch { return []; }
 }
 
 // ─── Fonctions Admin ──────────────────────────────────────────────────────────
