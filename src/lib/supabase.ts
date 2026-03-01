@@ -62,6 +62,50 @@ async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }
 export type SubscriptionTier = "free" | "standard" | "premium";
 export type SubscriptionStatus = "active" | "past_due" | "canceled" | "pending";
 
+export type MarketItem = {
+  id: number;
+  type: "index" | "commodity";
+  name: string;
+  value: number;
+  change_abs: number;
+  change_pct: string;
+  unit: string | null;
+  display_order: number;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export type NavSection = {
+  label: string;
+  slug: string;
+  icon: string;
+};
+
+export type ContactMessage = {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+};
+
+export type DashboardData = {
+  stats: {
+    total_users: number;
+    premium: number;
+    standard: number;
+    free: number;
+    total_revenue: number;
+    pending_payments: number;
+  };
+  recent_comments: Comment[];
+  contact_messages: ContactMessage[];
+  active_users: { user_id: string; author_name: string; author_avatar: string | null; count: number }[];
+  recent_payments: PaymentRequest[];
+};
+
 export type Profile = {
   id: string;                   // Clerk user ID
   email: string;
@@ -488,4 +532,73 @@ export async function getAllArticleViews(): Promise<Record<string, number>> {
   return Object.fromEntries(
     (data as { article_slug: string; views: number }[]).map((r) => [r.article_slug, r.views])
   );
+}
+// ─── Données publiques dynamiques (market_data, site_config) ─────────────────
+
+/** Récupère les données de marché depuis Supabase (lues par le ticker Navbar) */
+export async function getMarketData(): Promise<MarketItem[]> {
+  const data = await safeQuery(() =>
+    supabase.from("market_data").select("*").eq("is_active", true).order("type").order("display_order")
+  );
+  return (data as MarketItem[] | null) ?? [];
+}
+
+/** Récupère les sections de navigation depuis Supabase */
+export async function getNavSections(): Promise<NavSection[]> {
+  const data = await safeQuery(() =>
+    supabase.from("site_config").select("value").eq("key", "nav_sections").single()
+  );
+  return ((data as { value: NavSection[] } | null)?.value) ?? [];
+}
+
+// ─── Fonctions Admin ──────────────────────────────────────────────────────────
+
+/** [Admin] Dashboard CEO */
+export async function adminGetDashboard(): Promise<DashboardData | null> {
+  return callAdminApi<DashboardData>("get_dashboard");
+}
+
+/** [Admin] Messages de contact */
+export async function adminGetContactMessages(): Promise<ContactMessage[]> {
+  return (await callAdminApi<ContactMessage[]>("get_contact_messages")) ?? [];
+}
+
+/** [Admin] Marquer un message contact comme lu */
+export async function adminMarkContactRead(id: string): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("mark_contact_read", { id });
+  return res?.success === true;
+}
+
+/** [Admin] Données de marché complètes */
+export async function adminGetMarketData(): Promise<MarketItem[]> {
+  return (await callAdminApi<MarketItem[]>("get_market_data")) ?? [];
+}
+
+/** [Admin] Mettre à jour un item marché */
+export async function adminUpdateMarketItem(item: Partial<MarketItem> & { id: number }): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("update_market_item", item as Record<string, unknown>);
+  return res?.success === true;
+}
+
+/** [Admin] Ajouter un item marché */
+export async function adminAddMarketItem(item: Omit<MarketItem, "id" | "updated_at" | "is_active">): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("add_market_item", item as Record<string, unknown>);
+  return res?.success === true;
+}
+
+/** [Admin] Supprimer un item marché */
+export async function adminDeleteMarketItem(id: number): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("delete_market_item", { id });
+  return res?.success === true;
+}
+
+/** [Admin] Sections de navigation */
+export async function adminGetSections(): Promise<NavSection[]> {
+  return (await callAdminApi<NavSection[]>("get_sections")) ?? [];
+}
+
+/** [Admin] Mettre à jour les sections de navigation */
+export async function adminUpdateSections(sections: NavSection[]): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("update_sections", { sections });
+  return res?.success === true;
 }

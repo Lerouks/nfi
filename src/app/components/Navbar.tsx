@@ -3,23 +3,25 @@ import { Link, useNavigate, useLocation } from "react-router";
 import {
   Globe, TrendingUp, MapPin, BarChart2,
   ChevronDown, Search, X, Star, Menu,
-  Wrench, Bookmark,
+  Wrench, Bookmark, Zap, BookOpen, Target, Compass, type LucideProps,
 } from "lucide-react";
-import { MARKET_DATA, searchArticles } from "../data/mockData";
+import type { FC } from "react";
+import { searchArticles } from "../data/mockData";
 import logoImg from "@/assets/logo";
 import { ClerkNavAuth, ClerkMobileAuth, NavSubscribeButton } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
 import { useSavedArticles } from "../../lib/savedArticles";
 import { useClerkActive } from "../../lib/clerkActive";
+import { useMarketData, useNavSections } from "../../lib/siteData";
+import type { MarketItem, NavSection } from "../../lib/supabase";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const NAV_SECTIONS = [
-  { label: "Économie Africaine", href: "/section/economie-africaine", icon: Globe },
-  { label: "Économie Mondiale",  href: "/section/economie-mondiale",  icon: TrendingUp },
-  { label: "Focus Niger",        href: "/section/focus-niger",        icon: MapPin },
-  { label: "Analyses de Marché", href: "/section/analyses-de-marche", icon: BarChart2 },
-];
+// ─── Résolution des icônes depuis leur nom string ─────────────────────────────
+const ICON_MAP: Record<string, FC<LucideProps>> = {
+  Globe, TrendingUp, MapPin, BarChart2, Star, Zap, BookOpen, Target, Compass,
+};
+function resolveIcon(name: string): FC<LucideProps> {
+  return ICON_MAP[name] ?? Globe;
+}
 
 // Normalise les deux types de données marchés en un format uniforme pour le ticker
 interface TickerItem {
@@ -30,37 +32,24 @@ interface TickerItem {
   up: boolean;
 }
 
-function buildTickerItems(): TickerItem[] {
-  const items: TickerItem[] = [];
-  for (const idx of MARKET_DATA.indices) {
-    items.push({
-      key: idx.name,
-      name: idx.name,
-      value: idx.value.toLocaleString("fr-FR"),
-      change: idx.percent,
-      up: idx.change >= 0,
-    });
-  }
-  for (const c of MARKET_DATA.commodities) {
-    items.push({
-      key: c.name,
-      name: c.name,
-      value: `${c.value.toLocaleString("fr-FR")} ${c.unit}`,
-      change: `${c.change >= 0 ? "+" : ""}${c.change}`,
-      up: c.change >= 0,
-    });
-  }
-  return items;
+function buildTickerItems(marketItems: MarketItem[]): TickerItem[] {
+  return marketItems.map((item) => ({
+    key: `${item.type}-${item.id}`,
+    name: item.name,
+    value: item.unit
+      ? `${item.value.toLocaleString("fr-FR")} ${item.unit}`
+      : item.value.toLocaleString("fr-FR"),
+    change: item.change_pct,
+    up: item.change_abs >= 0,
+  }));
 }
-
-const TICKER_ITEMS = buildTickerItems();
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TickerRow({ prefix }: { prefix: string }) {
+function TickerRow({ prefix, items }: { prefix: string; items: TickerItem[] }) {
   return (
     <>
-      {TICKER_ITEMS.map((item) => (
+      {items.map((item) => (
         <span key={`${prefix}-${item.key}`} className="text-xs flex items-center gap-1.5 shrink-0">
           <span className="text-gray-400 font-medium">{item.name}</span>
           <span className="text-white font-semibold">{item.value}</span>
@@ -74,7 +63,7 @@ function TickerRow({ prefix }: { prefix: string }) {
 
 // ─── Smooth ticker band (CSS animation) ──────────────────────────────────────
 
-function TickerBand() {
+function TickerBand({ items }: { items: TickerItem[] }) {
   const [paused, setPaused] = useState(false);
 
   return (
@@ -97,8 +86,8 @@ function TickerBand() {
             animationPlayState: paused ? "paused" : "running",
           }}
         >
-          <TickerRow prefix="a" />
-          <TickerRow prefix="b" />
+          <TickerRow prefix="a" items={items} />
+          <TickerRow prefix="b" items={items} />
         </div>
       </div>
     </>
@@ -117,6 +106,11 @@ export function Navbar() {
 
   const { savedArticles } = useSavedArticles();
   const clerkActive = useClerkActive();
+
+  // Données dynamiques depuis Supabase
+  const marketItems = useMarketData();
+  const navSections = useNavSections();
+  const tickerItems = buildTickerItems(marketItems);
   const searchRef  = useRef<HTMLDivElement>(null);
   const navigate   = useNavigate();
   const location   = useLocation();
@@ -191,7 +185,7 @@ export function Navbar() {
           </span>
         </div>
 
-        <TickerBand />
+        <TickerBand items={tickerItems} />
       </div>
 
       {/* ── Main Header ───────────────────────────────────────── */}
@@ -236,12 +230,15 @@ export function Navbar() {
                 </button>
                 {sectionsOpen && (
                   <div className="absolute top-full left-0 mt-1 w-60 bg-white rounded-xl shadow-xl border py-2 z-50" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-                    {NAV_SECTIONS.map((item) => (
-                      <Link key={item.href} to={item.href} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#00A651] transition-colors">
-                        <item.icon size={15} className="text-[#00A651]" />
-                        {item.label}
-                      </Link>
-                    ))}
+                    {navSections.map((section) => {
+                      const Icon = resolveIcon(section.icon);
+                      return (
+                        <Link key={section.slug} to={`/section/${section.slug}`} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#00A651] transition-colors">
+                          <Icon size={15} className="text-[#00A651]" />
+                          {section.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -403,16 +400,19 @@ export function Navbar() {
             </Link>
             <div>
               <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sections</div>
-              {NAV_SECTIONS.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
-                >
-                  <item.icon size={14} className="text-[#00A651]" />
-                  {item.label}
-                </Link>
-              ))}
+              {navSections.map((section) => {
+                const Icon = resolveIcon(section.icon);
+                return (
+                  <Link
+                    key={section.slug}
+                    to={`/section/${section.slug}`}
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+                  >
+                    <Icon size={14} className="text-[#00A651]" />
+                    {section.label}
+                  </Link>
+                );
+              })}
             </div>
             <Link to="/outils" className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
               <Wrench size={14} className="text-[#00A651]" /> Outils Pratiques
