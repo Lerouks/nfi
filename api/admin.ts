@@ -17,7 +17,16 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const SUPABASE_URL        = process.env.SUPABASE_URL         || process.env.VITE_SUPABASE_URL        || "";
 const SUPABASE_SERVICE_KEY= process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const POSTGRES_URL        = process.env.POSTGRES_URL_NON_POOLING  || process.env.POSTGRES_URL || "";
+const SUPABASE_DB_PASSWORD= process.env.SUPABASE_DB_PASSWORD || "";
+
+// Derive postgres direct connection from SUPABASE_URL + SUPABASE_DB_PASSWORD when
+// the full Vercel-Supabase integration env vars are not available.
+const _projectRef = SUPABASE_URL.replace(/^https?:\/\//, "").replace(".supabase.co", "").split(".")[0];
+const _derivedUrl = (_projectRef && SUPABASE_DB_PASSWORD)
+  ? `postgresql://postgres:${encodeURIComponent(SUPABASE_DB_PASSWORD)}@db.${_projectRef}.supabase.co:5432/postgres`
+  : "";
+
+const POSTGRES_URL        = process.env.POSTGRES_URL_NON_POOLING  || process.env.POSTGRES_URL || _derivedUrl;
 const ADMIN_IDS           = (process.env.VITE_ADMIN_IDS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -104,7 +113,14 @@ CREATE INDEX IF NOT EXISTS payment_requests_status_idx    ON public.payment_requ
 let schemaReady = false;
 
 async function ensureSchema(): Promise<void> {
-  if (schemaReady || !POSTGRES_URL) return;
+  if (schemaReady) return;
+  if (!POSTGRES_URL) {
+    console.warn(
+      "[Admin] Schema init skipped — aucune URL postgres disponible. " +
+      "Définissez POSTGRES_URL_NON_POOLING ou SUPABASE_DB_PASSWORD dans Vercel."
+    );
+    return;
+  }
   const pg = new Client({ connectionString: POSTGRES_URL, connectionTimeoutMillis: 10000 });
   try {
     await pg.connect();
