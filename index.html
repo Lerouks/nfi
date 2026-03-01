@@ -107,11 +107,12 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" />
     </noscript>
 
-    <!-- Sentry — defer pour ne pas bloquer le rendu initial -->
+    <!-- Sentry — async : ne bloque pas l'exécution du module principal
+         (defer bloquait index.js car les scripts defer s'exécutent en ordre de document) -->
     <script
       src="https://js.sentry-cdn.com/46d006686fbbd9af84d462e794440ff7.min.js"
       crossorigin="anonymous"
-      defer
+      async
     ></script>
   </head>
 
