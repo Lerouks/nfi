@@ -49,9 +49,9 @@ export const AUTHORS: Author[] = [
   {
     id: "a1",
     name: "La Rédaction NFI",
-    role: "Rédaction",
+    role: "Équipe éditoriale",
     avatar: redactionAvatar,
-    bio: "L'équipe de rédaction de NFI REPORT regroupe des journalistes et analystes spécialisés en économie africaine, finance et marchés émergents.",
+    bio: "La Rédaction de NFI REPORT est composée de journalistes, d'économistes et d'analystes spécialisés en économie africaine, finance des marchés émergents et développement du continent. Nos contenus sont vérifiés, sourcés et soumis à un comité éditorial indépendant avant publication.",
     articles: 90,
   },
   {
