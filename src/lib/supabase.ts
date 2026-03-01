@@ -399,6 +399,19 @@ export async function getComments(articleSlug: string): Promise<Comment[]> {
   return (data as Comment[] | null) ?? [];
 }
 
+/** Récupère les commentaires publiés par un utilisateur */
+export async function getUserComments(userId: string, limit = 20): Promise<Comment[]> {
+  const data = await safeQuery(() =>
+    supabase
+      .from("comments")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+  );
+  return (data as Comment[] | null) ?? [];
+}
+
 /** Ajoute un commentaire et retourne le commentaire créé */
 export async function addComment(
   articleSlug: string,

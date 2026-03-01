@@ -271,6 +271,8 @@ function SubscribersTab() {
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Durée sélectionnée par utilisateur (userId → months)
+  const [selectedMonths, setSelectedMonths] = useState<Record<string, number>>({});
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -282,7 +284,6 @@ function SubscribersTab() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Filtre local instantané — pas besoin d'un appel réseau à chaque frappe
   const displayed = search.trim()
     ? allProfiles.filter((p) =>
         (p.email ?? "").toLowerCase().includes(search.trim().toLowerCase()) ||
@@ -306,9 +307,11 @@ function SubscribersTab() {
           : { ...p, subscription_tier: tier, subscription_status: tier === "free" ? "canceled" : "active", subscription_expires_at: expiresAt }
       ));
       setExpandedId(null);
-      showToast(`✓ ${tier.charAt(0).toUpperCase() + tier.slice(1)}${months > 0 ? ` — ${months} mois` : " (Free)"}`, true);
+      const tierLabel = tier === "free" ? "Free" : tier.charAt(0).toUpperCase() + tier.slice(1);
+      const monthLabel = months === 12 ? "1 an" : months === 1 ? "1 mois" : `${months} mois`;
+      showToast(`✓ ${tierLabel}${tier !== "free" ? ` — ${monthLabel}` : ""} appliqué`, true);
     } else {
-      showToast("Échec. Vérifiez la console (F12) pour l'erreur Supabase.", false);
+      showToast("Échec. Vérifiez la console (F12).", false);
     }
     setActionUserId(null);
   };
@@ -333,7 +336,6 @@ function SubscribersTab() {
 
   return (
     <div>
-      {/* Toast feedback */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${toast.ok ? "bg-[#00A651]" : "bg-red-500"}`}>
           {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
@@ -341,7 +343,6 @@ function SubscribersTab() {
         </div>
       )}
 
-      {/* Barre de recherche + refresh */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -363,7 +364,6 @@ function SubscribersTab() {
         </button>
       </div>
 
-      {/* Compteur */}
       {!loading && (
         <p className="text-xs text-gray-400 mb-3">
           {sorted.length} abonné{sorted.length !== 1 ? "s" : ""}
@@ -382,83 +382,97 @@ function SubscribersTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sorted.map((profile) => (
-            <div key={profile.id} className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <div className="flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 text-sm truncate">{profile.full_name ?? "—"}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_BADGE[profile.subscription_tier] ?? "bg-gray-100 text-gray-500"}`}>
-                      {profile.subscription_tier}
-                    </span>
-                    {profile.subscription_status === "active" && profile.subscription_tier !== "free" && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00A651] inline-block" title="Actif" />
+          {sorted.map((profile) => {
+            const months = selectedMonths[profile.id] ?? 1;
+            const isLoading = actionUserId === profile.id;
+            return (
+              <div key={profile.id} className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-900 text-sm truncate">{profile.full_name ?? "—"}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_BADGE[profile.subscription_tier] ?? "bg-gray-100 text-gray-500"}`}>
+                        {profile.subscription_tier}
+                      </span>
+                      {profile.subscription_status === "active" && profile.subscription_tier !== "free" && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#00A651] inline-block" title="Actif" />
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 truncate">{profile.email}</p>
+                    {profile.subscription_expires_at && (
+                      <p className="text-xs text-gray-400">
+                        Expire le {new Date(profile.subscription_expires_at).toLocaleDateString("fr-FR")}
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 truncate">{profile.email}</p>
-                  {profile.subscription_expires_at && (
-                    <p className="text-xs text-gray-400">
-                      Expire le {new Date(profile.subscription_expires_at).toLocaleDateString("fr-FR")}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => setExpandedId(expandedId === profile.id ? null : profile.id)}
-                  className="flex items-center gap-1 text-xs text-[#00A651] font-medium shrink-0 px-2 py-1 rounded-lg hover:bg-green-50 transition"
-                >
-                  Modifier <ChevronDown size={13} className={`transition ${expandedId === profile.id ? "rotate-180" : ""}`} />
-                </button>
-              </div>
-
-              {expandedId === profile.id && (
-                <div className="border-t px-4 pb-4 pt-3 space-y-3 bg-gray-50/50" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
-                  {/* Standard */}
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Passer en Standard</p>
-                    <div className="flex flex-wrap gap-2">
-                      {DURATIONS.map((d) => (
-                        <button
-                          key={d.months}
-                          disabled={actionUserId === profile.id}
-                          onClick={() => handleUpdateSub(profile.id, "standard", d.months)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-50 flex items-center gap-1"
-                        >
-                          {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Premium */}
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Passer en Premium</p>
-                    <div className="flex flex-wrap gap-2">
-                      {DURATIONS.map((d) => (
-                        <button
-                          key={d.months}
-                          disabled={actionUserId === profile.id}
-                          onClick={() => handleUpdateSub(profile.id, "premium", d.months)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 transition disabled:opacity-50 flex items-center gap-1"
-                        >
-                          {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Free */}
                   <button
-                    disabled={actionUserId === profile.id}
-                    onClick={() => handleUpdateSub(profile.id, "free", 0)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50 flex items-center gap-1"
+                    onClick={() => {
+                      const next = expandedId === profile.id ? null : profile.id;
+                      setExpandedId(next);
+                      if (next && !selectedMonths[profile.id]) {
+                        setSelectedMonths((prev) => ({ ...prev, [profile.id]: 1 }));
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs text-[#00A651] font-medium shrink-0 px-2 py-1 rounded-lg hover:bg-green-50 transition"
                   >
-                    {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
-                    Réinitialiser (Free)
+                    Modifier <ChevronDown size={13} className={`transition ${expandedId === profile.id ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {expandedId === profile.id && (
+                  <div className="border-t px-4 pb-4 pt-3 space-y-3 bg-gray-50/50" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                    {/* Sélecteur de durée */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Durée</p>
+                      <div className="flex flex-wrap gap-2">
+                        {DURATIONS.map((d) => (
+                          <button
+                            key={d.months}
+                            onClick={() => setSelectedMonths((prev) => ({ ...prev, [profile.id]: d.months }))}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                              months === d.months
+                                ? "bg-[#0D1B35] text-white border-[#0D1B35]"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Boutons d'action */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        disabled={isLoading}
+                        onClick={() => handleUpdateSub(profile.id, "standard", months)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50"
+                      >
+                        {isLoading ? <Loader size={12} className="animate-spin" /> : null}
+                        Passer en Standard
+                      </button>
+                      <button
+                        disabled={isLoading}
+                        onClick={() => handleUpdateSub(profile.id, "premium", months)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 transition disabled:opacity-50"
+                      >
+                        {isLoading ? <Loader size={12} className="animate-spin" /> : null}
+                        Passer en Premium
+                      </button>
+                      <button
+                        disabled={isLoading}
+                        onClick={() => handleUpdateSub(profile.id, "free", 0)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50"
+                      >
+                        {isLoading ? <Loader size={12} className="animate-spin" /> : null}
+                        Réinitialiser (Free)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -223,6 +223,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === "update_payment_request" && req.method === "POST") {
       const { id, status, adminNote } = req.body ?? {};
       if (!id || !status) return res.status(400).json({ error: "id et status requis" });
+
+      // Quand on valide un paiement → appliquer automatiquement l'abonnement
+      if (status === "verified") {
+        const { data: payReq } = await sb
+          .from("payment_requests")
+          .select("user_id, plan_id")
+          .eq("id", id)
+          .single();
+
+        if (payReq?.user_id && payReq?.plan_id) {
+          const planId = payReq.plan_id as string;
+          const tier = planId.startsWith("premium") ? "premium" : "standard";
+          const months = planId.endsWith("-yearly") ? 12 : 1;
+          const expiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+          await sb.from("profiles").update({
+            subscription_tier:       tier,
+            subscription_status:     "active",
+            subscription_expires_at: expiresAt,
+            updated_at:              new Date().toISOString(),
+          }).eq("id", payReq.user_id);
+        }
+      }
+
       const { error } = await sb
         .from("payment_requests")
         .update({
