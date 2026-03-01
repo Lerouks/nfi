@@ -4,7 +4,7 @@ import { useUser, SignInButton } from "@clerk/clerk-react";
 import {
   Clock, Eye, MessageCircle, Bookmark, BookmarkCheck,
   ChevronRight, Twitter, Linkedin, Facebook, Lock,
-  ThumbsUp, Send, TrendingUp, Copy, Check, LogIn,
+  ThumbsUp, Send, TrendingUp, Copy, Check, LogIn, X, UserCircle, UserPlus,
 } from "lucide-react";
 import { PortableText } from "@portabletext/react";
 import {
@@ -92,6 +92,7 @@ function ArticlePageContent({
   const [realViews, setRealViews] = useState<number | null>(null);
   const [authorArticleCount, setAuthorArticleCount] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showAuthorModal, setShowAuthorModal] = useState(false);
   // Quota consommé pour cet article (pour ne pas re-consommer au reload)
   const quotaConsumedRef = useRef(false);
 
@@ -317,14 +318,17 @@ function ArticlePageContent({
 
                 {/* Meta */}
                 <div className="flex flex-wrap items-center gap-4 mb-5 pb-5 border-b" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAuthorModal(true)}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left"
+                  >
                     <img src={article.author.avatar} alt={article.author.name}
                       className="w-9 h-9 rounded-full object-cover" />
                     <div>
                       <p className="text-sm text-gray-900 font-medium">{article.author.name}</p>
-                      <p className="text-xs text-gray-500">{article.author.role}</p>
+                      <p className="text-xs text-[#00A651]">{article.author.role}</p>
                     </div>
-                  </div>
+                  </button>
                   <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                     <span>{formatDate(article.publishedAt)}</span>
                     <span className="flex items-center gap-1"><Clock size={11} /> {article.readTime} min</span>
@@ -405,7 +409,40 @@ function ArticlePageContent({
                         <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10" style={{ top: "-80px" }} />
                         <div className="relative z-20 mt-8">
                           {/* Quota épuisé vs non connecté */}
-                          {isSignedIn && subscription.premiumReadsLeft === 0 ? (
+                          {!isSignedIn ? (
+                            /* Non connecté → priorité : créer un compte */
+                            <div className="rounded-xl border p-6 text-center" style={{ borderColor: "rgba(0,0,0,0.08)", background: "#fff" }}>
+                              <Lock size={28} className="text-[#0D1B35] mx-auto mb-3" />
+                              <h3 className="text-gray-900 font-semibold mb-2">Contenu réservé aux abonnés</h3>
+                              <p className="text-gray-500 text-sm mb-5">
+                                Créez un compte gratuit pour accéder à 3 articles premium par mois,<br className="hidden sm:block" />
+                                ou abonnez-vous pour un accès illimité à toutes nos analyses.
+                              </p>
+                              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                {clerkActive ? (
+                                  <SignInButton mode="modal">
+                                    <button
+                                      className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm text-white font-semibold rounded-full transition hover:opacity-90"
+                                      style={{ background: "#0D1B35" }}
+                                    >
+                                      <UserPlus size={14} /> Créer un compte gratuit
+                                    </button>
+                                  </SignInButton>
+                                ) : (
+                                  <Link to="/profile"
+                                    className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm text-white font-semibold rounded-full transition hover:opacity-90"
+                                    style={{ background: "#0D1B35" }}>
+                                    <UserPlus size={14} /> Créer un compte gratuit
+                                  </Link>
+                                )}
+                                <Link to="/subscribe"
+                                  className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium rounded-full border-2 transition hover:opacity-90"
+                                  style={{ borderColor: "#00A651", color: "#00A651" }}>
+                                  Voir les abonnements
+                                </Link>
+                              </div>
+                            </div>
+                          ) : isSignedIn && subscription.premiumReadsLeft === 0 ? (
                             <div className="rounded-xl border p-6 text-center" style={{ borderColor: "rgba(0,0,0,0.08)", background: "#fff" }}>
                               <Lock size={28} className="text-[#C9A84C] mx-auto mb-3" />
                               <h3 className="text-gray-900 font-semibold mb-2">Quota mensuel atteint</h3>
@@ -455,21 +492,65 @@ function ArticlePageContent({
             </div>
 
             {/* Author bio */}
-            <div className="bg-white rounded-xl border p-5 sm:p-6 mb-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <h3 className="text-gray-900 font-semibold mb-4 text-sm uppercase tracking-wider">À propos de l'auteur</h3>
-              <div className="flex items-start gap-4">
+            <button
+              onClick={() => setShowAuthorModal(true)}
+              className="w-full bg-white rounded-xl border p-5 sm:p-6 mb-5 text-left hover:shadow-md transition-shadow group"
+              style={{ borderColor: "rgba(0,0,0,0.08)" }}
+            >
+              <h3 className="text-gray-900 font-semibold mb-4 text-sm uppercase tracking-wider flex items-center justify-between">
+                À propos de l'auteur
+                <span className="text-xs font-normal text-[#00A651] group-hover:underline flex items-center gap-1">
+                  <UserCircle size={13} /> En savoir plus
+                </span>
+              </h3>
+              <div className="flex items-center gap-4">
                 <img src={article.author.avatar} alt={article.author.name}
-                  className="w-16 h-16 rounded-full object-cover shrink-0" loading="lazy" />
-                <div>
+                  className="w-14 h-14 rounded-full object-cover shrink-0" loading="lazy" />
+                <div className="flex-1 min-w-0">
                   <h4 className="text-gray-900 font-semibold">{article.author.name}</h4>
-                  <p className="text-[#00A651] text-xs mb-2">{article.author.role}</p>
-                  <p className="text-gray-600 text-sm leading-relaxed">{article.author.bio}</p>
-                  <p className="text-xs text-gray-500 mt-3">
-                    {authorArticleCount !== null ? authorArticleCount : article.author.articles} articles publiés
-                  </p>
+                  <p className="text-[#00A651] text-xs mb-1">{article.author.role}</p>
+                  <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">{article.author.bio}</p>
                 </div>
               </div>
-            </div>
+            </button>
+
+            {/* Modal auteur */}
+            {showAuthorModal && (
+              <div
+                className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+                style={{ background: "rgba(0,0,0,0.5)" }}
+                onClick={() => setShowAuthorModal(false)}
+              >
+                <div
+                  className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-gray-900 font-bold text-base">À propos de l'auteur</h3>
+                    <button onClick={() => setShowAuthorModal(false)} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="flex items-start gap-4 mb-4">
+                    <img src={article.author.avatar} alt={article.author.name}
+                      className="w-16 h-16 rounded-full object-cover shrink-0" />
+                    <div>
+                      <h4 className="text-gray-900 font-bold text-lg">{article.author.name}</h4>
+                      <span className="inline-block px-2.5 py-0.5 bg-[#00A651]/10 text-[#00A651] text-xs font-semibold rounded-full mt-1">
+                        {article.author.role}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed mb-4">{article.author.bio}</p>
+                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
+                    <TrendingUp size={14} className="text-[#00A651] shrink-0" />
+                    <span className="text-xs text-gray-600">
+                      <strong>{authorArticleCount !== null ? authorArticleCount : article.author.articles}</strong> article{(authorArticleCount ?? article.author.articles) > 1 ? "s" : ""} publié{(authorArticleCount ?? article.author.articles) > 1 ? "s" : ""} sur NFI REPORT
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Comments */}
             <div className="bg-white rounded-xl border p-5 sm:p-6" style={{ borderColor: "rgba(0,0,0,0.08)" }}>

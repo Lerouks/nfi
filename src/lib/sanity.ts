@@ -114,14 +114,20 @@ export function toArticle(a: SanityArticle) {
     excerpt: a.excerpt,
     content: "",
     cover: a.cover ? urlFor(a.cover).width(800).url() : "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&fit=crop",
-    author: {
-      id: "a1",
-      name: a.author ?? "La Rédaction NFI",
-      role: "Rédaction",
-      avatar: "/redaction-avatar.png",
-      bio: "",
-      articles: 0,
-    },
+    author: (() => {
+      const authorName = a.author ?? "La Rédaction NFI";
+      const isTeam = !a.author || /r[eé]daction/i.test(a.author);
+      return {
+        id: isTeam ? "a1" : `ext-${authorName.toLowerCase().replace(/\s+/g, "-")}`,
+        name: authorName,
+        role: isTeam ? "Équipe éditoriale" : "Journaliste & Contributeur",
+        avatar: "/redaction-avatar.png",
+        bio: isTeam
+          ? "La Rédaction de NFI REPORT est composée de journalistes, d'économistes et d'analystes spécialisés en économie africaine, finance des marchés émergents et développement du continent. Nos contenus sont vérifiés, sourcés et soumis à un comité éditorial indépendant avant publication."
+          : `${authorName} est un expert contributeur de NFI REPORT. Spécialiste reconnu dans son domaine, il apporte une analyse pointue et indépendante sur les sujets économiques et financiers qui façonnent l'Afrique.`,
+        articles: 0,
+      };
+    })(),
     category: cat.name,
     categorySlug: cat.slug,
     tags: a.tags ?? [],

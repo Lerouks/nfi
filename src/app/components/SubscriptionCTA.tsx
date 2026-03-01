@@ -27,7 +27,7 @@ export function SubscriptionCTA({ variant = "banner" }: SubscriptionCTAProps) {
         </div>
         <div className="text-center mb-3">
           <span className="text-[#D4A017] font-bold text-lg">5 000</span>
-          <span className="text-gray-400 text-xs"> FCFA / mois</span>
+          <span className="text-gray-400 text-xs"> FCFA par mois</span>
         </div>
         <Link to="/subscribe"
           className="block w-full py-2 text-sm text-white font-semibold rounded-lg text-center transition hover:opacity-90"
@@ -40,22 +40,30 @@ export function SubscriptionCTA({ variant = "banner" }: SubscriptionCTAProps) {
 
   if (variant === "inline") {
     return (
-      <div className="rounded-xl border-2 border-dashed p-6 flex flex-col sm:flex-row items-center gap-4"
-        style={{ borderColor: "#00A651", background: "rgba(0,166,81,0.15)", color: "#00A651" }}>
-        <div className="p-3 bg-[#00A651]/10 rounded-full">
-          <Lock size={20} className="text-[#00A651]" />
+      <div className="rounded-xl border p-6 space-y-4" style={{ borderColor: "rgba(0,0,0,0.08)", background: "#fff" }}>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-[#0D1B35]/10 rounded-full shrink-0">
+            <Lock size={18} className="text-[#0D1B35]" />
+          </div>
+          <div>
+            <h4 className="text-gray-900 font-semibold text-sm">Contenu réservé aux abonnés</h4>
+            <p className="text-gray-500 text-xs mt-0.5">Accédez à l'intégralité de cette analyse.</p>
+          </div>
         </div>
-        <div className="flex-1 text-center sm:text-left">
-          <h4 className="text-gray-900 font-semibold">Contenu réservé aux abonnés</h4>
-          <p className="text-gray-500 text-sm mt-0.5">
-            Abonnez-vous dès 5 000 FCFA/mois pour accéder à l'intégralité des analyses.
-          </p>
+        {/* Priorité 1 : créer un compte, Priorité 2 : s'abonner */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Link to="/profile"
+            className="flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-full transition hover:opacity-90"
+            style={{ background: "#0D1B35" }}>
+            Créer un compte gratuit
+          </Link>
+          <Link to="/subscribe"
+            className="flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-full border-2 transition hover:bg-[#00A651]/5"
+            style={{ borderColor: "#00A651", color: "#00A651" }}>
+            Voir les abonnements
+          </Link>
         </div>
-        <Link to="/subscribe"
-          className="shrink-0 px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}>
-          Voir les plans
-        </Link>
+        <p className="text-center text-xs text-gray-400">3 articles premium gratuits par mois avec un compte gratuit</p>
       </div>
     );
   }
@@ -93,7 +101,7 @@ export function SubscriptionCTA({ variant = "banner" }: SubscriptionCTAProps) {
           <Link to="/subscribe"
             className="px-8 py-3.5 text-white font-semibold rounded-full transition hover:opacity-90 active:scale-95"
             style={{ background: "linear-gradient(135deg, #C9A84C, #A07830)" }}>
-            Commencer à 5 000 FCFA / mois
+            Commencer à 5 000 FCFA par mois
           </Link>
           <Link to="/subscribe"
             className="px-8 py-3.5 text-gray-300 font-medium rounded-full border border-white/20 hover:bg-white/5 transition">
