@@ -111,8 +111,9 @@ export function Navbar() {
   const marketItems = useMarketData();
   const navSections = useNavSections();
   const tickerItems = buildTickerItems(marketItems);
-  const searchRef  = useRef<HTMLDivElement>(null);
-  const navigate   = useNavigate();
+  const searchRef   = useRef<HTMLDivElement>(null);
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  const navigate    = useNavigate();
   const location   = useLocation();
 
   // Scroll shadow
@@ -143,6 +144,17 @@ export function Navbar() {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setSearchOpen(false);
         setSearchQuery("");
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  // Close sections dropdown on outside click
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (sectionsRef.current && !sectionsRef.current.contains(e.target as Node)) {
+        setSectionsOpen(false);
       }
     };
     document.addEventListener("mousedown", onClick);
@@ -217,10 +229,10 @@ export function Navbar() {
               <Link to="/" className="px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50 hover:text-[#00A651] transition-colors">
                 Accueil
               </Link>
-              <div className="relative" onMouseLeave={() => setSectionsOpen(false)}>
+              <div className="relative" ref={sectionsRef}>
                 <button
                   className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg hover:bg-gray-50 transition-colors ${sectionsOpen ? "text-[#00A651]" : "text-gray-700"}`}
-                  onMouseEnter={() => setSectionsOpen(true)}
+                  onClick={() => setSectionsOpen((s) => !s)}
                   aria-haspopup="true"
                   aria-expanded={sectionsOpen}
                   aria-label="Sections — ouvrir le sous-menu"

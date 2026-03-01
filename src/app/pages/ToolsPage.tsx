@@ -24,7 +24,7 @@ interface Tool {
   color: string;
   bg: string;
   description: string;
-  component: React.LazyExoticComponent<() => JSX.Element>;
+  component: React.LazyExoticComponent<React.ComponentType>;
   plan: "free" | "premium";
 }
 

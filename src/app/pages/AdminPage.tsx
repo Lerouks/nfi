@@ -361,6 +361,8 @@ function MarchesTab() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Partial<MarketItem>>({});
+  // Chaînes brutes pour champs numériques — évite le reset à 0 lors de la frappe
+  const [editRaw, setEditRaw] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
   const [newItem, setNewItem] = useState<Omit<MarketItem, "id" | "updated_at" | "is_active">>({
     type: "index", name: "", value: 0, change_abs: 0, change_pct: "+0.00%", unit: null, display_order: 0,
@@ -386,6 +388,11 @@ function MarchesTab() {
       name: item.name, value: item.value, change_abs: item.change_abs,
       change_pct: item.change_pct, unit: item.unit, type: item.type,
       display_order: item.display_order, is_active: item.is_active,
+    });
+    setEditRaw({
+      value: String(item.value),
+      change_abs: String(item.change_abs),
+      display_order: String(item.display_order),
     });
   };
 
@@ -516,8 +523,13 @@ function MarchesTab() {
                       <label className="block text-xs text-gray-500 mb-1">Valeur</label>
                       <input
                         type="number"
-                        value={editValues.value ?? item.value}
-                        onChange={(e) => setEditValues((v) => ({ ...v, value: parseFloat(e.target.value) || 0 }))}
+                        step="0.1"
+                        value={editRaw.value ?? String(editValues.value ?? item.value)}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, value: e.target.value }));
+                          const n = parseFloat(e.target.value);
+                          if (!isNaN(n)) setEditValues((v) => ({ ...v, value: n }));
+                        }}
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                       />
@@ -526,8 +538,13 @@ function MarchesTab() {
                       <label className="block text-xs text-gray-500 mb-1">Variation absolue</label>
                       <input
                         type="number"
-                        value={editValues.change_abs ?? item.change_abs}
-                        onChange={(e) => setEditValues((v) => ({ ...v, change_abs: parseFloat(e.target.value) || 0 }))}
+                        step="0.1"
+                        value={editRaw.change_abs ?? String(editValues.change_abs ?? item.change_abs)}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, change_abs: e.target.value }));
+                          const n = parseFloat(e.target.value);
+                          if (!isNaN(n)) setEditValues((v) => ({ ...v, change_abs: n }));
+                        }}
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                       />
@@ -555,8 +572,13 @@ function MarchesTab() {
                       <label className="block text-xs text-gray-500 mb-1">Ordre d'affichage</label>
                       <input
                         type="number"
-                        value={editValues.display_order ?? item.display_order}
-                        onChange={(e) => setEditValues((v) => ({ ...v, display_order: parseInt(e.target.value) || 0 }))}
+                        step="1"
+                        value={editRaw.display_order ?? String(editValues.display_order ?? item.display_order)}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, display_order: e.target.value }));
+                          const n = parseInt(e.target.value);
+                          if (!isNaN(n)) setEditValues((v) => ({ ...v, display_order: n }));
+                        }}
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                       />
@@ -581,7 +603,7 @@ function MarchesTab() {
                       {saving === item.id ? <Loader size={12} className="animate-spin" /> : <Save size={12} />}
                       Enregistrer
                     </button>
-                    <button onClick={() => setEditingId(null)} className="px-4 py-2 rounded-lg text-xs text-gray-600 border border-gray-200 hover:border-gray-300 transition">
+                    <button onClick={() => { setEditingId(null); setEditRaw({}); }} className="px-4 py-2 rounded-lg text-xs text-gray-600 border border-gray-200 hover:border-gray-300 transition">
                       Annuler
                     </button>
                   </div>
