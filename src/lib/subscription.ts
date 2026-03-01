@@ -44,7 +44,9 @@ export function useSubscription(userId: string | null | undefined): Subscription
   const prevUserId = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    if (userId === prevUserId.current) return;
+    // Re-fetch si userId change OU si le composant est remonté (après navigation)
+    const isFirstMount = prevUserId.current === undefined;
+    if (!isFirstMount && userId === prevUserId.current) return;
     prevUserId.current = userId;
 
     if (!userId) {
