@@ -7,6 +7,7 @@ import {
   adminGetAllProfiles,
   adminSearchProfiles,
   adminUpdateSubscription,
+  setAdminUser,
   type PaymentRequest,
   type Profile,
 } from "../../lib/supabase";
@@ -37,6 +38,11 @@ function AdminWithClerk() {
 
 function AdminContent({ userId }: { userId: string | undefined }) {
   const [tab, setTab] = useState<"payments" | "subscribers">("payments");
+
+  // Initialiser le client admin avec l'ID de l'utilisateur courant
+  useEffect(() => {
+    if (userId && isAdmin(userId)) setAdminUser(userId);
+  }, [userId]);
 
   // Mode configuration : VITE_ADMIN_IDS non défini → afficher l'ID pour setup
   if (ADMIN_IDS.length === 0 && userId) {

@@ -5,65 +5,39 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
  * Une seule instance GoTrueClient dans tout le browser context.
  */
 
-const SUPABASE_URL         = import.meta.env.VITE_SUPABASE_URL          ?? "";
-const SUPABASE_ANON_KEY    = import.meta.env.VITE_SUPABASE_ANON_KEY    ?? "";
-const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_KEY ?? "";
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      ?? "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 const SUPABASE_READY =
   SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.startsWith("eyJ");
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
-// On stocke l'instance sur globalThis pour éviter les multiples GoTrueClient
-// lors des re-rendus HMR ou des imports depuis plusieurs modules.
-const SINGLETON_KEY       = "__nfi_supabase_client__";
-const SINGLETON_ADMIN_KEY = "__nfi_supabase_admin_client__";
+const SINGLETON_KEY = "__nfi_supabase_client__";
 
 declare global {
   // eslint-disable-next-line no-var
   var __nfi_supabase_client__: SupabaseClient | undefined;
-  // eslint-disable-next-line no-var
-  var __nfi_supabase_admin_client__: SupabaseClient | undefined;
 }
 
 function getSupabaseClient(): SupabaseClient {
   if (globalThis[SINGLETON_KEY]) {
     return globalThis[SINGLETON_KEY] as SupabaseClient;
   }
-
   const client = createClient(
-    SUPABASE_READY ? SUPABASE_URL     : "https://placeholder.supabase.co",
+    SUPABASE_READY ? SUPABASE_URL      : "https://placeholder.supabase.co",
     SUPABASE_READY ? SUPABASE_ANON_KEY : "placeholder-key",
     {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        storageKey: "nfi-report-auth",   // clé unique → évite les collisions
+        storageKey: "nfi-report-auth",
       },
     }
   );
-
   globalThis[SINGLETON_KEY] = client;
   return client;
 }
-
-/** Client admin avec la Service Role Key — bypass le RLS Supabase.
- *  Requiert VITE_SUPABASE_SERVICE_KEY dans les variables d'environnement. */
-function getAdminSupabaseClient(): SupabaseClient {
-  if (globalThis[SINGLETON_ADMIN_KEY]) {
-    return globalThis[SINGLETON_ADMIN_KEY] as SupabaseClient;
-  }
-  const key = SUPABASE_SERVICE_KEY.startsWith("eyJ") ? SUPABASE_SERVICE_KEY : SUPABASE_ANON_KEY;
-  const client = createClient(
-    SUPABASE_READY ? SUPABASE_URL : "https://placeholder.supabase.co",
-    SUPABASE_READY ? key : "placeholder-key",
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
-  globalThis[SINGLETON_ADMIN_KEY] = client;
-  return client;
-}
-
-export const supabase      = getSupabaseClient();
-const        adminSupabase = getAdminSupabaseClient();
+export const supabase = getSupabaseClient();
 
 // ─── Helper : ignore toutes les requêtes si Supabase n'est pas configuré ─────
 async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
@@ -267,21 +241,49 @@ export async function savePaymentRequest(req: {
 }
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
+// Les opérations admin passent par /api/admin (Vercel serverless) qui utilise
+// SUPABASE_SERVICE_ROLE_KEY côté serveur et applique le schéma DB si besoin.
+
+let _adminUserId = "";
+
+/** À appeler depuis AdminPage dès qu'on connaît l'ID de l'admin connecté. */
+export function setAdminUser(id: string): void {
+  _adminUserId = id;
+}
+
+async function callAdminApi<T>(
+  action: string,
+  body?: Record<string, unknown>
+): Promise<T | null> {
+  if (!_adminUserId) {
+    console.error("[Admin] setAdminUser() non appelé");
+    return null;
+  }
+  try {
+    const url = `/api/admin?action=${encodeURIComponent(action)}`;
+    const res = await fetch(url, {
+      method: body ? "POST" : "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-id":   _adminUserId,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      console.error(`[Admin] ${action} HTTP ${res.status}:`, text);
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    console.error(`[Admin] ${action} exception:`, err);
+    return null;
+  }
+}
 
 /** [Admin] Récupère toutes les demandes de paiement */
 export async function adminGetAllPaymentRequests(): Promise<PaymentRequest[]> {
-  if (!SUPABASE_READY) return [];
-  try {
-    const { data, error } = await adminSupabase
-      .from("payment_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) { console.error("[Supabase] adminGetAllPaymentRequests", error); return []; }
-    return (data as PaymentRequest[]) ?? [];
-  } catch (err) {
-    console.error("[Supabase] adminGetAllPaymentRequests exception", err);
-    return [];
-  }
+  return (await callAdminApi<PaymentRequest[]>("get_payment_requests")) ?? [];
 }
 
 /** [Admin] Met à jour le statut d'une demande de paiement */
@@ -290,54 +292,28 @@ export async function adminUpdatePaymentRequest(
   status: "verified" | "rejected" | "refunded",
   adminNote?: string
 ): Promise<boolean> {
-  if (!SUPABASE_READY) return false;
-  try {
-    const { error } = await adminSupabase
-      .from("payment_requests")
-      .update({
-        status,
-        admin_note: adminNote ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-    if (error) { console.error("[Supabase] adminUpdatePaymentRequest", error); return false; }
-    return true;
-  } catch (err) {
-    console.error("[Supabase] adminUpdatePaymentRequest exception", err);
-    return false;
-  }
+  const res = await callAdminApi<{ success: boolean }>("update_payment_request", {
+    id, status, adminNote: adminNote ?? null,
+  });
+  return res?.success === true;
 }
 
 /** [Admin] Récupère tous les profils */
 export async function adminGetAllProfiles(): Promise<Profile[]> {
-  if (!SUPABASE_READY) return [];
-  try {
-    const { data, error } = await adminSupabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) { console.error("[Supabase] adminGetAllProfiles", error); return []; }
-    return (data as Profile[]) ?? [];
-  } catch (err) {
-    console.error("[Supabase] adminGetAllProfiles exception", err);
-    return [];
-  }
+  return (await callAdminApi<Profile[]>("get_profiles")) ?? [];
 }
 
 /** [Admin] Recherche des profils par email */
 export async function adminSearchProfiles(email: string): Promise<Profile[]> {
-  if (!SUPABASE_READY) return [];
+  if (!_adminUserId) return [];
   try {
-    const { data, error } = await adminSupabase
-      .from("profiles")
-      .select("*")
-      .ilike("email", `%${email}%`)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) { console.error("[Supabase] adminSearchProfiles", error); return []; }
-    return (data as Profile[]) ?? [];
-  } catch (err) {
-    console.error("[Supabase] adminSearchProfiles exception", err);
+    const res = await fetch(
+      `/api/admin?action=search_profiles&email=${encodeURIComponent(email)}`,
+      { headers: { "x-admin-id": _adminUserId } }
+    );
+    if (!res.ok) return [];
+    return (await res.json()) as Profile[];
+  } catch {
     return [];
   }
 }
@@ -348,26 +324,10 @@ export async function adminUpdateSubscription(
   tier: SubscriptionTier,
   months: number
 ): Promise<boolean> {
-  if (!SUPABASE_READY) return false;
-  const expiresAt = tier === "free"
-    ? null
-    : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
-  try {
-    const { error } = await adminSupabase
-      .from("profiles")
-      .update({
-        subscription_tier:       tier,
-        subscription_status:     tier === "free" ? "canceled" : "active",
-        subscription_expires_at: expiresAt,
-        updated_at:              new Date().toISOString(),
-      })
-      .eq("id", userId);
-    if (error) { console.error("[Supabase] adminUpdateSubscription", error); return false; }
-    return true;
-  } catch (err) {
-    console.error("[Supabase] adminUpdateSubscription exception", err);
-    return false;
-  }
+  const res = await callAdminApi<{ success: boolean }>("update_subscription", {
+    userId, tier, months,
+  });
+  return res?.success === true;
 }
 
 /** Récupère les demandes de paiement d'un utilisateur */
