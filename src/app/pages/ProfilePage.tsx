@@ -22,6 +22,13 @@ import {
 
 type Tab = "overview" | "saved" | "subscription" | "settings";
 
+const NOTIF_DEFAULTS = [
+  { id: "newsletter",  label: "Newsletter quotidienne",  sub: "Résumé des actualités chaque matin",    enabled: true  },
+  { id: "breaking",    label: "Alertes breaking news",   sub: "Nouvelles urgentes en temps réel",      enabled: true  },
+  { id: "reports",     label: "Rapports financiers",     sub: "Nouveaux rapports premium disponibles", enabled: false },
+  { id: "comments",    label: "Commentaires",            sub: "Réponses à vos commentaires",           enabled: true  },
+];
+
 // ─── Wrapper Clerk ─────────────────────────────────────────────────────────────
 function ProfileWithClerk() {
   const { isSignedIn, user, isLoaded } = useUser();
@@ -131,13 +138,6 @@ function ProfileContent({
     getPaymentRequests(userId).then(setPaymentHistory).catch(() => {});
     getUserComments(userId, 20).then(setUserComments).catch(() => {});
   }, [userId]);
-
-  const NOTIF_DEFAULTS = [
-    { id: "newsletter",  label: "Newsletter quotidienne",  sub: "Résumé des actualités chaque matin",    enabled: true  },
-    { id: "breaking",    label: "Alertes breaking news",   sub: "Nouvelles urgentes en temps réel",      enabled: true  },
-    { id: "reports",     label: "Rapports financiers",     sub: "Nouveaux rapports premium disponibles", enabled: false },
-    { id: "comments",    label: "Commentaires",            sub: "Réponses à vos commentaires",           enabled: true  },
-  ];
 
   const [notifPrefs, setNotifPrefs] = useState(() => {
     try {

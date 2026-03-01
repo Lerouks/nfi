@@ -131,10 +131,16 @@ export function NavSubscribeButton({ mobile = false }: { mobile?: boolean }) {
   const subscription = useSubscription(isSignedIn && user ? user.id : null);
   const tier = subscription.tier;
 
-  // Premium → rien à afficher
-  if (isLoaded && !subscription.isLoading && isSignedIn && tier === "premium") return null;
+  // Pendant le chargement Clerk → rien (évite le flash)
+  if (!isLoaded) return null;
 
-  const isPremiumUpgrade = isLoaded && !subscription.isLoading && isSignedIn && tier === "standard";
+  // Pendant le chargement de l'abonnement (utilisateur connecté) → rien
+  if (isSignedIn && subscription.isLoading) return null;
+
+  // Premium → masqué (déjà au meilleur plan)
+  if (isSignedIn && tier === "premium") return null;
+
+  const isPremiumUpgrade = isSignedIn && tier === "standard";
   const label = isPremiumUpgrade ? "Passer en Premium" : "S'abonner";
   const style = isPremiumUpgrade
     ? { background: "linear-gradient(135deg, #C9A84C, #b8942a)" }

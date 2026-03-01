@@ -590,73 +590,119 @@ function SubscribePageContent({
             </div>
           )}
 
-          <div className={`grid gap-5 ${(!tierLoading && isSignedIn && currentTier === "standard") ? "grid-cols-1 max-w-sm mx-auto" : "grid-cols-1 sm:grid-cols-3"}`}>
-            {SUBSCRIPTION_PLANS
-              .filter((p) => {
-                // Standard → masquer les plans free et standard (déjà souscrits)
-                if (!tierLoading && isSignedIn && currentTier === "standard") return p.id === "premium";
-                return true;
-              })
-              .map((plan) => (
-              <div
-                key={plan.id}
-                className={`relative bg-white rounded-2xl border overflow-hidden transition-all ${
-                  plan.highlighted
-                    ? "shadow-xl border-[#00A651] scale-105"
-                    : "border-gray-200 hover:shadow-md"
-                }`}
-              >
-                {plan.badge && (
-                  <div className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider"
-                    style={{ background: plan.highlighted ? "#00A651" : "#D4A017" }}>
-                    {plan.badge}
-                  </div>
-                )}
-                <div className="p-6">
-                  <h3 className="text-gray-900 font-bold text-lg mb-1">{plan.name}</h3>
-                  <div className="flex items-end gap-1 mb-1">
-                    <span className="text-3xl font-black text-gray-900">
-                      {formatPrice(plan.id === "free" ? 0 : billingPeriod === "yearly" ? plan.price * 10 : plan.price)}
-                    </span>
-                    <span className="text-gray-400 text-sm pb-0.5">{plan.currency}</span>
-                  </div>
-                  <p className="text-gray-500 text-xs mb-1">
-                    {plan.id === "free" ? plan.period : billingPeriod === "yearly" ? "/ an" : plan.period}
-                  </p>
-                  {billingPeriod === "yearly" && plan.id !== "free" && (
-                    <p className="text-[#00A651] text-xs mb-4 font-medium">
-                      soit {formatPrice(plan.price)} {plan.currency}/mois · 2 mois offerts
-                    </p>
-                  )}
-                  {(billingPeriod === "monthly" || plan.id === "free") && <div className="mb-4" />}
+          {/* isStandardUpgradeView : l'utilisateur standard ne voit que le plan Premium */}
+          {(() => {
+            const isStandardUpgradeView = !tierLoading && isSignedIn && currentTier === "standard";
+            const visiblePlans = SUBSCRIPTION_PLANS.filter((p) =>
+              isStandardUpgradeView ? p.id === "premium" : true
+            );
 
-                  <ul className="space-y-2.5 mb-6 mt-0">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <CheckCircle2 size={14} className="text-[#00A651] shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-700">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
+            return (
+              <div className={`grid gap-5 ${isStandardUpgradeView ? "grid-cols-1 max-w-sm mx-auto" : "grid-cols-1 sm:grid-cols-3"}`}>
+                {visiblePlans.map((plan) => {
+                  // Pour l'utilisateur standard, le plan premium est mis en avant (style doré)
+                  const isUpgradeTarget = isStandardUpgradeView && plan.id === "premium";
+                  // highlighted = standard selon les données ; on force "highlighted" pour le plan cible montée
+                  const effectiveHighlight = plan.highlighted || isUpgradeTarget;
 
-                  <button
-                    onClick={() => handleSubscribe(plan.id)}
-                    disabled={plan.id === "free"}
-                    className={`w-full py-3 text-sm font-semibold rounded-full transition-all ${
-                      plan.id === "free"
-                        ? "bg-gray-100 text-gray-500 cursor-default"
-                        : plan.highlighted
-                        ? "text-white hover:opacity-90 active:scale-95"
-                        : "text-[#00A651] border-2 border-[#00A651] hover:bg-[#00A651] hover:text-white"
-                    }`}
-                    style={plan.highlighted && plan.id !== "free" ? { background: "linear-gradient(135deg, #00A651, #008c44)" } : {}}
-                  >
-                    {plan.id === "free" ? "Plan actuel" : "Choisir ce plan"}
-                  </button>
-                </div>
+                  const badgeBg = isUpgradeTarget
+                    ? "linear-gradient(135deg, #C9A84C, #b8942a)"
+                    : effectiveHighlight
+                    ? "#00A651"
+                    : "#D4A017";
+
+                  const cardClass = `relative bg-white rounded-2xl border overflow-hidden transition-all ${
+                    effectiveHighlight
+                      ? "shadow-xl scale-105"
+                      : "border-gray-200 hover:shadow-md"
+                  }`;
+                  const cardBorderColor = isUpgradeTarget
+                    ? "#C9A84C"
+                    : effectiveHighlight
+                    ? "#00A651"
+                    : undefined;
+
+                  const btnClass = `w-full py-3 text-sm font-semibold rounded-full transition-all ${
+                    plan.id === "free"
+                      ? "bg-gray-100 text-gray-500 cursor-default"
+                      : "text-white hover:opacity-90 active:scale-95"
+                  }`;
+                  const btnStyle =
+                    plan.id !== "free"
+                      ? isUpgradeTarget
+                        ? { background: "linear-gradient(135deg, #C9A84C, #b8942a)" }
+                        : effectiveHighlight
+                        ? { background: "linear-gradient(135deg, #00A651, #008c44)" }
+                        : { background: "linear-gradient(135deg, #00A651, #008c44)" }
+                      : {};
+
+                  const btnLabel =
+                    plan.id === "free"
+                      ? "Plan actuel"
+                      : isUpgradeTarget
+                      ? "✦ Passer en Premium"
+                      : "Choisir ce plan";
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className={cardClass}
+                      style={cardBorderColor ? { borderColor: cardBorderColor, borderWidth: 2 } : {}}
+                    >
+                      {plan.badge && (
+                        <div
+                          className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider"
+                          style={{ background: badgeBg }}
+                        >
+                          {plan.badge}
+                        </div>
+                      )}
+                      <div className="p-6">
+                        <h3 className="text-gray-900 font-bold text-lg mb-1">{plan.name}</h3>
+                        <div className="flex items-end gap-1 mb-1">
+                          <span className="text-3xl font-black text-gray-900">
+                            {formatPrice(plan.id === "free" ? 0 : billingPeriod === "yearly" ? plan.price * 10 : plan.price)}
+                          </span>
+                          <span className="text-gray-400 text-sm pb-0.5">{plan.currency}</span>
+                        </div>
+                        <p className="text-gray-500 text-xs mb-1">
+                          {plan.id === "free" ? plan.period : billingPeriod === "yearly" ? "/ an" : plan.period}
+                        </p>
+                        {billingPeriod === "yearly" && plan.id !== "free" && (
+                          <p className="text-[#00A651] text-xs mb-4 font-medium">
+                            soit {formatPrice(plan.price)} {plan.currency}/mois · 2 mois offerts
+                          </p>
+                        )}
+                        {(billingPeriod === "monthly" || plan.id === "free") && <div className="mb-4" />}
+
+                        <ul className="space-y-2.5 mb-6 mt-0">
+                          {plan.features.map((f) => (
+                            <li key={f} className="flex items-start gap-2">
+                              <CheckCircle2
+                                size={14}
+                                className="shrink-0 mt-0.5"
+                                style={{ color: isUpgradeTarget ? "#C9A84C" : "#00A651" }}
+                              />
+                              <span className="text-sm text-gray-700">{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <button
+                          onClick={() => handleSubscribe(plan.id)}
+                          disabled={plan.id === "free"}
+                          className={btnClass}
+                          style={btnStyle}
+                        >
+                          {btnLabel}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* Features comparison */}
           <div className="mt-12">
