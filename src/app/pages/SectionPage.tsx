@@ -7,6 +7,7 @@ import {
   CATEGORIES, TRENDING_TAGS, formatDate, type Article,
 } from "../data/mockData";
 import { getArticlesByCategory, getAllArticles, toArticle } from "../../lib/sanity";
+import { useNavSections } from "../../lib/siteData";
 import { ArticleCard } from "../components/ArticleCard";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -25,17 +26,22 @@ export default function SectionPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [page, setPage] = useState(1);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
+  const [articlesLoaded, setArticlesLoaded] = useState(false);
 
+  const navSections = useNavSections();
   const didMount = useRef(false);
 
   useEffect(() => {
     if (slug) {
       getArticlesByCategory(slug).then((data) => {
-        const articles = data.map(toArticle);
-        setAllArticles(articles.length >= 3 ? articles : articles);
+        setAllArticles(data.map(toArticle));
+        setArticlesLoaded(true);
       });
     } else {
-      getAllArticles().then((data) => setAllArticles(data.map(toArticle)));
+      getAllArticles().then((data) => {
+        setAllArticles(data.map(toArticle));
+        setArticlesLoaded(true);
+      });
     }
   }, [slug]);
 
@@ -48,7 +54,11 @@ export default function SectionPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [filter, sortBy]);
 
-  const category = CATEGORIES.find((c) => c.slug === slug);
+  // Chercher la section dans les catégories statiques, puis dans les sections dynamiques Supabase
+  const staticCat = CATEGORIES.find((c) => c.slug === slug);
+  const dynamicSect = navSections.find((s) => s.slug === slug);
+  const category = staticCat
+    ?? (dynamicSect ? { name: dynamicSect.label, slug: slug ?? "", count: 0, icon: "" } : null);
 
   // Filter
   let filtered = allArticles.filter((a) => {
@@ -70,11 +80,13 @@ export default function SectionPage() {
 
   const popularArticles = allArticles.slice(0, 4);
 
-  if (!category && slug) {
+  // Montrer "introuvable" seulement si les articles sont chargés, qu'il n'y en a aucun
+  // et que le slug ne correspond à aucune section (statique ou dynamique)
+  if (articlesLoaded && !category && slug && allArticles.length === 0) {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-gray-900 text-2xl mb-2">Section introuvable</h1>
+          <p className="text-gray-900 text-2xl font-bold mb-2">Section introuvable</p>
           <Link to="/" className="text-[#00A651] hover:underline">← Retour à l'accueil</Link>
         </div>
       </div>

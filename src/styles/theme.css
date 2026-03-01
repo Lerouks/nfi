@@ -3,7 +3,7 @@
 :root {
   --font-size: 16px;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-serif: 'Merriweather', Georgia, 'Times New Roman', serif;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -137,7 +137,7 @@
   }
 
   /**
-  * Inter pour le corps de texte, Playfair Display pour les titres.
+  * Inter pour UI & chiffres, Merriweather pour les titres & corps éditorial.
   * Les classes Tailwind utilitaires (text-sm, text-lg, etc.) surchargent toujours ces defaults.
   */
 

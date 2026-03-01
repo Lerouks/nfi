@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   Star, CheckCircle2, CreditCard, Lock, Shield,
   ChevronRight, ChevronDown, BarChart2, Globe, Bell, Download,
@@ -161,7 +161,61 @@ function SubscribePageContent({
     }
   };
 
-  // ── Déjà abonné au meilleur plan → écran dédié ──────────────────────────────
+  const [searchParams] = useSearchParams();
+  const upgradeMode = searchParams.get("upgrade") === "1";
+
+  // ── Spinner pendant le chargement du tier (évite le flash de la page plans) ─
+  if (isSignedIn && tierLoading) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-[#00A651] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Abonné Standard → écran dédié (sauf si mode upgrade explicite) ───────────
+  if (!tierLoading && isSignedIn && currentTier === "standard" && !upgradeMode) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border p-8 sm:p-12 max-w-md w-full text-center shadow-lg"
+          style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: "#EFF6FF" }}>
+            <Star size={28} style={{ color: "#3B82F6" }} />
+          </div>
+          <p className="font-bold text-gray-900 mb-2" style={{ fontSize: "1.4rem", fontFamily: "var(--font-sans)" }}>
+            Vous avez déjà l'abonnement Standard
+          </p>
+          <p className="text-gray-500 text-sm mb-6">
+            Vous bénéficiez de l'accès Standard NFI REPORT avec accès à tout le contenu inclus dans ce plan.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link to="/"
+              className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-full hover:bg-gray-50 transition text-center">
+              Retour à l'accueil
+            </Link>
+            <Link to="/profile?tab=subscription"
+              className="flex-1 py-2.5 text-sm font-medium text-white rounded-full transition text-center"
+              style={{ background: "linear-gradient(135deg, #3B82F6, #2563EB)" }}>
+              Mon abonnement
+            </Link>
+          </div>
+          <div className="mt-5 pt-5 border-t" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+            <p className="text-xs text-gray-400 mb-3">Passez en Premium pour accéder aux outils exclusifs et à tout le contenu</p>
+            <Link
+              to="/subscribe?upgrade=1"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #C9A84C, #b8942a)" }}
+            >
+              <Star size={14} /> Passer en Premium
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Abonné Premium → écran dédié ─────────────────────────────────────────────
   if (!tierLoading && isSignedIn && currentTier === "premium") {
     return (
       <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
@@ -171,9 +225,11 @@ function SubscribePageContent({
             style={{ background: "linear-gradient(135deg, #C9A84C22, #C9A84C44)" }}>
             <Star size={28} style={{ color: "#C9A84C" }} />
           </div>
-          <h1 className="text-gray-900 text-2xl mb-2">Vous êtes déjà Premium</h1>
+          <p className="font-bold text-gray-900 mb-2" style={{ fontSize: "1.4rem", fontFamily: "var(--font-sans)" }}>
+            Vous êtes déjà Premium
+          </p>
           <p className="text-gray-500 text-sm mb-6">
-            Vous bénéficiez déjà du meilleur plan NFI REPORT avec un accès illimité à tout le contenu.
+            Vous bénéficiez du meilleur plan NFI REPORT avec un accès illimité à tout le contenu.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link to="/"
