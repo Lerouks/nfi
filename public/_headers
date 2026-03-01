@@ -1,3 +1,26 @@
+# Cache immuable pour les assets Vite (hachés → jamais invalidés par erreur)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Images statiques du dossier public (sans hash → 1 semaine)
+/*.png
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/*.jpg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/*.webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/*.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# HTML : jamais mis en cache (SPA — toujours la version fraîche)
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/404.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Sécurité — toutes les routes
 /*
   # Sécurité — NFI REPORT
   X-Frame-Options: DENY

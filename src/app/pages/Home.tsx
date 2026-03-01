@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
 import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
 import { getAllArticles, getFeaturedArticles, toArticle } from "../../lib/sanity";
@@ -9,7 +9,17 @@ import { ScrollReveal } from "../components/ScrollReveal";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
-import { BRVMChart, GDPChart, InvestmentChart } from "../components/FinancialChart";
+
+// Recharts chargé en lazy : ne pèse pas sur le bundle initial (~160 KB gzip évités)
+const BRVMChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.BRVMChart }))
+);
+const GDPChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.GDPChart }))
+);
+const InvestmentChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.InvestmentChart }))
+);
 
 /** Squelette d'une carte article (pendant le chargement) */
 function ArticleCardSkeleton() {
@@ -100,6 +110,7 @@ export default function Home() {
                   alt={featured[0].title}
                   className="w-full h-72 sm:h-96 lg:h-[480px] object-cover group-hover:scale-105 transition-transform duration-700"
                   loading="eager"
+                  fetchPriority="high"
                 />
                 <div className="absolute inset-0"
                   style={{ background: "linear-gradient(to top, rgba(13,27,53,0.95) 0%, rgba(13,27,53,0.5) 50%, transparent 100%)" }} />
@@ -221,13 +232,20 @@ export default function Home() {
                   <div className="w-1 h-5 rounded-full" style={{ background: "#C9A84C" }} />
                   <h2 className="text-gray-900 font-bold text-lg">Marchés & Analyses</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <BRVMChart />
-                  <GDPChart />
-                </div>
-                <div className="mt-4">
-                  <InvestmentChart />
-                </div>
+                <Suspense fallback={
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="h-52 nfi-skeleton rounded-xl" />
+                    <div className="h-52 nfi-skeleton rounded-xl" />
+                  </div>
+                }>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <BRVMChart />
+                    <GDPChart />
+                  </div>
+                  <div className="mt-4">
+                    <InvestmentChart />
+                  </div>
+                </Suspense>
               </div>
             </ScrollReveal>
 
