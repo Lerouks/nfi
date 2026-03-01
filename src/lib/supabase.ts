@@ -269,6 +269,7 @@ export async function adminUpdatePaymentRequest(
       .from("payment_requests")
       .update({ status, admin_note: adminNote ?? null, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .select()
   , "adminUpdatePaymentRequest");
   return result !== null;
 }
@@ -304,6 +305,7 @@ export async function adminUpdateSubscription(
         updated_at:              new Date().toISOString(),
       })
       .eq("id", userId)
+      .select()
   , "adminUpdateSubscription");
   return result !== null;
 }
