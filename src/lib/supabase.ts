@@ -285,26 +285,45 @@ export async function adminUpdatePaymentRequest(
   status: "verified" | "rejected" | "refunded",
   adminNote?: string
 ): Promise<boolean> {
-  const result = await safeQuery(() =>
-    adminSupabase
-      .from("payment_requests")
-      .update({ status, admin_note: adminNote ?? null, updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-  , "adminUpdatePaymentRequest");
-  return Array.isArray(result) && result.length > 0;
+  if (!SUPABASE_READY) return false;
+  try {
+    const { data, error } = await supabase.rpc("admin_update_payment_request", {
+      p_id: id,
+      p_status: status,
+      p_admin_note: adminNote ?? null,
+    });
+    if (error) { console.error("[Supabase] adminUpdatePaymentRequest", error); return false; }
+    return data === true;
+  } catch (err) {
+    console.error("[Supabase] adminUpdatePaymentRequest exception", err);
+    return false;
+  }
+}
+
+/** [Admin] Récupère tous les profils */
+export async function adminGetAllProfiles(): Promise<Profile[]> {
+  if (!SUPABASE_READY) return [];
+  try {
+    const { data, error } = await supabase.rpc("admin_get_all_profiles");
+    if (error) { console.error("[Supabase] adminGetAllProfiles", error); return []; }
+    return (data as Profile[]) ?? [];
+  } catch (err) {
+    console.error("[Supabase] adminGetAllProfiles exception", err);
+    return [];
+  }
 }
 
 /** [Admin] Recherche des profils par email */
 export async function adminSearchProfiles(email: string): Promise<Profile[]> {
-  const data = await safeQuery(() =>
-    supabase
-      .from("profiles")
-      .select("*")
-      .ilike("email", `%${email}%`)
-      .limit(20)
-  , "adminSearchProfiles");
-  return (data as Profile[] | null) ?? [];
+  if (!SUPABASE_READY) return [];
+  try {
+    const { data, error } = await supabase.rpc("admin_search_profiles", { p_email: email });
+    if (error) { console.error("[Supabase] adminSearchProfiles", error); return []; }
+    return (data as Profile[]) ?? [];
+  } catch (err) {
+    console.error("[Supabase] adminSearchProfiles exception", err);
+    return [];
+  }
 }
 
 /** [Admin] Met à jour l'abonnement d'un utilisateur */
@@ -313,25 +332,23 @@ export async function adminUpdateSubscription(
   tier: SubscriptionTier,
   months: number
 ): Promise<boolean> {
+  if (!SUPABASE_READY) return false;
   const expiresAt = tier === "free"
     ? null
     : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
-  const result = await safeQuery(() =>
-    adminSupabase
-      .from("profiles")
-      .update({
-        subscription_tier:       tier,
-        subscription_status:     tier === "free" ? "canceled" : "active",
-        subscription_expires_at: expiresAt,
-        updated_at:              new Date().toISOString(),
-      })
-      .eq("id", userId)
-      .select()
-  , "adminUpdateSubscription");
-  // result === null → erreur Supabase
-  // result === []   → aucune ligne modifiée (RLS ou ID introuvable)
-  // result === [{…}] → succès
-  return Array.isArray(result) && result.length > 0;
+  try {
+    const { data, error } = await supabase.rpc("admin_update_subscription", {
+      p_user_id:    userId,
+      p_tier:       tier,
+      p_status:     tier === "free" ? "canceled" : "active",
+      p_expires_at: expiresAt,
+    });
+    if (error) { console.error("[Supabase] adminUpdateSubscription", error); return false; }
+    return data === true;
+  } catch (err) {
+    console.error("[Supabase] adminUpdateSubscription exception", err);
+    return false;
+  }
 }
 
 /** Récupère les demandes de paiement d'un utilisateur */
