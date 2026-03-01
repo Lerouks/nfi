@@ -286,6 +286,71 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Experts & Collaborateurs */}
+      <section className="py-12 sm:py-16 px-4 bg-[#F7F8FA]">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-1 h-5 rounded-full bg-[#00A651]" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#00A651]">Notre réseau d'expertise</span>
+            </div>
+            <h2 className="text-gray-900 text-2xl sm:text-3xl mb-3">Nous faisons appel aux meilleurs experts</h2>
+            <p className="text-gray-500 text-sm max-w-2xl mx-auto leading-relaxed">
+              Pour garantir la qualité et la rigueur de nos contenus, NFI REPORT collabore régulièrement avec un réseau de spécialistes indépendants issus de différents horizons professionnels.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+            {[
+              {
+                icon: "📊",
+                title: "Économistes & Chercheurs",
+                desc: "Nous faisons appel à des économistes africains et internationaux, chercheurs en institutions académiques ou think tanks, pour enrichir nos analyses macroéconomiques avec une profondeur scientifique.",
+              },
+              {
+                icon: "💹",
+                title: "Analystes Financiers",
+                desc: "Des professionnels de la finance — gestionnaires de fonds, analystes de marchés, experts en stratégie d'investissement — contribuent à nos rapports sur les marchés financiers africains.",
+              },
+              {
+                icon: "📰",
+                title: "Journalistes Spécialisés",
+                desc: "Correspondants locaux et journalistes d'investigation spécialisés en économie collaborent à nos reportages de terrain pour apporter une information ancrée dans les réalités africaines.",
+              },
+              {
+                icon: "🏭",
+                title: "Dirigeants d'Entreprises",
+                desc: "Des chefs d'entreprises, entrepreneurs et décideurs du secteur privé africain partagent leur expérience et leur vision pour éclairer nos lecteurs sur les dynamiques du business.",
+              },
+              {
+                icon: "⚖️",
+                title: "Experts Juridiques & Fiscaux",
+                desc: "Avocats d'affaires, fiscalistes et experts en droit des investissements nous aident à décrypter les cadres réglementaires et législatifs qui encadrent l'activité économique.",
+              },
+              {
+                icon: "🌍",
+                title: "Institutions & Organisations",
+                desc: "NFI REPORT entretient des relations avec des représentants d'institutions régionales (CEDEAO, UEMOA, UA) et d'organisations internationales (FMI, Banque Mondiale) pour un éclairage institutionnel précis.",
+              },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="bg-white rounded-xl border p-5 hover:shadow-md transition-shadow" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                <div className="text-2xl mb-3">{icon}</div>
+                <h3 className="text-gray-900 font-semibold text-sm mb-2">{title}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Note éditoriale */}
+          <div className="bg-[#0D1B35] rounded-2xl p-6 sm:p-8 text-white text-center">
+            <p className="text-lg sm:text-xl leading-relaxed mb-3" style={{ fontFamily: "var(--font-serif)", fontStyle: "italic" }}>
+              « Chaque contributeur qui signe un article sur NFI REPORT engage sa réputation professionnelle. Nous vérifions les faits, confrontons les sources et assurons l'indépendance éditoriale de chaque contenu publié. »
+            </p>
+            <p className="text-[#00A651] text-sm font-semibold">— La Direction éditoriale de NFI REPORT</p>
+          </div>
+        </div>
+      </section>
+
       {/* Contact */}
       <section className="py-12 sm:py-16 px-4">
         <div className="max-w-3xl mx-auto">

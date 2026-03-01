@@ -70,9 +70,13 @@ export function Layout() {
         <Navbar />
         <main id="main-content" className="flex-1" role="main">
           <Suspense fallback={<PageLoader />}>
-            {/* La clé sur ce div force un remontage à chaque changement de route,
-                ce qui relance l'animation CSS nfi-page-enter (fade + slide). */}
-            <div key={location.key} className="nfi-page-enter">
+            {/* La clé force un remontage à chaque navigation → relance nfi-page-enter.
+                On skippe l'animation au chargement initial (key === "default") pour
+                éviter la page blanche : opacity:0 dès le premier rendu. */}
+            <div
+              key={location.key}
+              className={location.key === "default" ? undefined : "nfi-page-enter"}
+            >
               <Outlet />
             </div>
           </Suspense>
