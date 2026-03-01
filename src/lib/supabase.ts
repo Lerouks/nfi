@@ -48,12 +48,13 @@ async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }
   try {
     const { data, error } = await fn();
     if (error) {
-      console.error("[Supabase] Erreur requête", label ?? "", error);
+      // warn (pas error) : safeQuery retourne toujours null et les appelants ont des fallbacks
+      console.warn("[Supabase] Requête échouée –", label ?? "(sans label)", error);
       return null;
     }
     return data;
   } catch (err) {
-    console.error("[Supabase] Exception requête", label ?? "", err);
+    console.warn("[Supabase] Exception –", label ?? "(sans label)", err);
     return null;
   }
 }
@@ -537,16 +538,18 @@ export async function getAllArticleViews(): Promise<Record<string, number>> {
 
 /** Récupère les données de marché depuis Supabase (lues par le ticker Navbar) */
 export async function getMarketData(): Promise<MarketItem[]> {
-  const data = await safeQuery(() =>
-    supabase.from("market_data").select("*").eq("is_active", true).order("type").order("display_order")
+  const data = await safeQuery(
+    () => supabase.from("market_data").select("*").eq("is_active", true).order("type").order("display_order"),
+    "market_data"
   );
   return (data as MarketItem[] | null) ?? [];
 }
 
 /** Récupère les sections de navigation depuis Supabase */
 export async function getNavSections(): Promise<NavSection[]> {
-  const data = await safeQuery(() =>
-    supabase.from("site_config").select("value").eq("key", "nav_sections").single()
+  const data = await safeQuery(
+    () => supabase.from("site_config").select("value").eq("key", "nav_sections").single(),
+    "site_config[nav_sections]"
   );
   return ((data as { value: NavSection[] } | null)?.value) ?? [];
 }

@@ -1,5 +1,5 @@
 import { createClient } from "@sanity/client";
-import imageUrlBuilder from "@sanity/image-url";
+import { createImageUrlBuilder } from "@sanity/image-url";
 
 const token = import.meta.env.VITE_SANITY_TOKEN as string | undefined;
 
@@ -13,7 +13,7 @@ export const sanityClient = createClient({
   stega: false,
 });
 
-const builder = imageUrlBuilder(sanityClient);
+const builder = createImageUrlBuilder(sanityClient);
 export function urlFor(source: any) {
   return builder.image(source);
 }

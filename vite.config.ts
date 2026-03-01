@@ -39,6 +39,11 @@ export default defineConfig({
     target: 'es2018',
     // Seuil d'avertissement pour les chunks volumineux (kB)
     chunkSizeWarningLimit: 600,
+    // Évite les warnings "preloaded but not used" pour les chunks chargés en lazy
+    modulePreload: {
+      resolveDependencies: (filename, deps) =>
+        deps.filter((d) => !d.includes('vendor-recharts') && !d.includes('vendor-clerk') && !d.includes('vendor-analytics')),
+    },
     rollupOptions: {
       output: {
         // Séparer les dépendances lourdes en chunks distincts pour un meilleur cache
