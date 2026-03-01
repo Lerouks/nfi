@@ -16,6 +16,21 @@ const spa404Fallback = {
   },
 }
 
+// Plugin : supprime le <link rel="modulepreload"> du chunk d'entrée principal.
+// Vite l'ajoute inconditionnellement (hors resolveDependencies). Le navigateur
+// le précharge mais ne l'utilise pas depuis le <script type="module"> car les
+// credentials/timing diffèrent → warning "preloaded but not used" + double fetch.
+// Les preloads vendor (react, sanity…) sont conservés : ils bénéficient bien au LCP.
+const removeMainEntryPreload = {
+  name: 'remove-main-entry-preload',
+  transformIndexHtml(html: string) {
+    return html.replace(
+      /<link rel="modulepreload" crossorigin href="\/assets\/index-[^"]+\.js">\n?/g,
+      ''
+    )
+  },
+}
+
 export default defineConfig({
   plugins: [
     // The React and Tailwind plugins are both required for Make, even if
@@ -23,6 +38,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     spa404Fallback,
+    removeMainEntryPreload,
   ],
   resolve: {
     alias: {
