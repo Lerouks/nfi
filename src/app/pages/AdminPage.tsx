@@ -4,6 +4,7 @@ import { useClerkActive } from "../../lib/clerkActive";
 import {
   adminGetAllPaymentRequests,
   adminUpdatePaymentRequest,
+  adminGetAllProfiles,
   adminSearchProfiles,
   adminUpdateSubscription,
   type PaymentRequest,
@@ -260,40 +261,48 @@ function PaymentsTab() {
 
 function SubscribersTab() {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<Profile[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const data = await adminGetAllProfiles();
+    setAllProfiles(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Filtre local instantané — pas besoin d'un appel réseau à chaque frappe
+  const displayed = search.trim()
+    ? allProfiles.filter((p) =>
+        (p.email ?? "").toLowerCase().includes(search.trim().toLowerCase()) ||
+        (p.full_name ?? "").toLowerCase().includes(search.trim().toLowerCase())
+      )
+    : allProfiles;
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!search.trim()) return;
-    setSearching(true);
-    const data = await adminSearchProfiles(search.trim());
-    setResults(data);
-    setSearching(false);
-  };
-
   const handleUpdateSub = async (userId: string, tier: "free" | "standard" | "premium", months: number) => {
     setActionUserId(userId);
     const ok = await adminUpdateSubscription(userId, tier, months);
     if (ok) {
-      setResults((prev) => prev.map((p) => {
-        if (p.id !== userId) return p;
-        const expiresAt = tier === "free" ? null
-          : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
-        return { ...p, subscription_tier: tier, subscription_status: tier === "free" ? "canceled" : "active", subscription_expires_at: expiresAt };
-      }));
+      const expiresAt = tier === "free" ? null
+        : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+      setAllProfiles((prev) => prev.map((p) =>
+        p.id !== userId ? p
+          : { ...p, subscription_tier: tier, subscription_status: tier === "free" ? "canceled" : "active", subscription_expires_at: expiresAt }
+      ));
       setExpandedId(null);
-      showToast(`Abonnement mis à jour : ${tier}${months > 0 ? ` — ${months} mois` : ""}`, true);
+      showToast(`✓ ${tier.charAt(0).toUpperCase() + tier.slice(1)}${months > 0 ? ` — ${months} mois` : " (Free)"}`, true);
     } else {
-      showToast("Échec de la mise à jour. Vérifiez les permissions Supabase (RLS).", false);
+      showToast("Échec. Vérifiez la console (F12) pour l'erreur Supabase.", false);
     }
     setActionUserId(null);
   };
@@ -311,6 +320,11 @@ function SubscribersTab() {
     { months: 12, label: "1 an" },
   ];
 
+  const tierOrder: Record<string, number> = { premium: 0, standard: 1, free: 2 };
+  const sorted = [...displayed].sort((a, b) =>
+    (tierOrder[a.subscription_tier] ?? 3) - (tierOrder[b.subscription_tier] ?? 3)
+  );
+
   return (
     <div>
       {/* Toast feedback */}
@@ -321,37 +335,59 @@ function SubscribersTab() {
         </div>
       )}
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-        <input
-          type="email"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher par email..."
-          className="flex-1 px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
-          style={{ borderColor: "rgba(0,0,0,0.15)" }}
-        />
+      {/* Barre de recherche + refresh */}
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filtrer par email ou nom..."
+            className="w-full pl-9 pr-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
+            style={{ borderColor: "rgba(0,0,0,0.15)" }}
+          />
+        </div>
         <button
-          type="submit"
-          disabled={searching}
-          className="px-4 py-2.5 rounded-xl text-sm text-white font-medium flex items-center gap-2 disabled:opacity-60"
-          style={{ background: "#00A651" }}
+          onClick={loadAll}
+          className="px-3 py-2.5 rounded-xl text-sm text-gray-500 border border-gray-200 hover:border-gray-300 flex items-center gap-1.5 bg-white"
+          style={{ borderColor: "rgba(0,0,0,0.10)" }}
         >
-          {searching ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Search size={15} />}
-          Chercher
+          <RefreshCw size={13} />
         </button>
-      </form>
+      </div>
 
-      {results.length > 0 && (
-        <div className="space-y-3">
-          {results.map((profile) => (
+      {/* Compteur */}
+      {!loading && (
+        <p className="text-xs text-gray-400 mb-3">
+          {sorted.length} abonné{sorted.length !== 1 ? "s" : ""}
+          {search.trim() ? ` trouvé${sorted.length !== 1 ? "s" : ""} pour "${search.trim()}"` : " au total"}
+          {" · "}{allProfiles.filter((p) => p.subscription_tier !== "free").length} payant{allProfiles.filter((p) => p.subscription_tier !== "free").length !== 1 ? "s" : ""}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 border-2 border-[#00A651] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="bg-white rounded-xl border p-8 text-center text-gray-400 text-sm" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+          {search.trim() ? `Aucun résultat pour "${search.trim()}"` : "Aucun abonné enregistré."}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((profile) => (
             <div key={profile.id} className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
               <div className="flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-900 text-sm truncate">{profile.full_name ?? "—"}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_BADGE[profile.subscription_tier]}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_BADGE[profile.subscription_tier] ?? "bg-gray-100 text-gray-500"}`}>
                       {profile.subscription_tier}
                     </span>
+                    {profile.subscription_status === "active" && profile.subscription_tier !== "free" && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00A651] inline-block" title="Actif" />
+                    )}
                   </div>
                   <p className="text-xs text-gray-400 truncate">{profile.email}</p>
                   {profile.subscription_expires_at && (
@@ -362,14 +398,14 @@ function SubscribersTab() {
                 </div>
                 <button
                   onClick={() => setExpandedId(expandedId === profile.id ? null : profile.id)}
-                  className="flex items-center gap-1 text-xs text-[#00A651] font-medium shrink-0"
+                  className="flex items-center gap-1 text-xs text-[#00A651] font-medium shrink-0 px-2 py-1 rounded-lg hover:bg-green-50 transition"
                 >
                   Modifier <ChevronDown size={13} className={`transition ${expandedId === profile.id ? "rotate-180" : ""}`} />
                 </button>
               </div>
 
               {expandedId === profile.id && (
-                <div className="border-t px-4 pb-4 pt-3 space-y-3" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                <div className="border-t px-4 pb-4 pt-3 space-y-3 bg-gray-50/50" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
                   {/* Standard */}
                   <div>
                     <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Passer en Standard</p>
@@ -418,10 +454,6 @@ function SubscribersTab() {
             </div>
           ))}
         </div>
-      )}
-
-      {results.length === 0 && !searching && search && (
-        <p className="text-center text-gray-400 text-sm py-8">Aucun abonné trouvé pour "{search}"</p>
       )}
     </div>
   );
