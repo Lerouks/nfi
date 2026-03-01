@@ -136,15 +136,28 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   );
 }
 
-/** Crée ou met à jour le profil après connexion Clerk */
+/** Crée ou met à jour le profil après connexion Clerk.
+ *  NE touche PAS aux champs d'abonnement s'ils ne sont pas fournis explicitement
+ *  (évite d'écraser un abonnement premium défini par l'admin).
+ */
 export async function upsertProfile(profile: Partial<Profile> & { id: string }): Promise<boolean> {
+  // Construire l'objet à insérer/mettre à jour
+  // Les champs subscription_* sont inclus seulement si fournis explicitement.
+  // Pour un nouvel utilisateur (INSERT), la base utilise ses propres DEFAULT ("free" / "active").
+  // Pour un utilisateur existant (UPDATE on conflict), ces champs ne sont pas touchés.
+  const data: Record<string, unknown> = {
+    id:         profile.id,
+    email:      profile.email      ?? "",
+    full_name:  profile.full_name  ?? null,
+    avatar_url: profile.avatar_url ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  if (profile.subscription_tier   !== undefined) data.subscription_tier   = profile.subscription_tier;
+  if (profile.subscription_status !== undefined) data.subscription_status = profile.subscription_status;
+  if (profile.subscription_expires_at !== undefined) data.subscription_expires_at = profile.subscription_expires_at;
+
   const result = await safeQuery(() =>
-    supabase.from("profiles").upsert({
-      ...profile,
-      subscription_tier:   profile.subscription_tier   ?? "free",
-      subscription_status: profile.subscription_status ?? "active",
-      updated_at: new Date().toISOString(),
-    })
+    supabase.from("profiles").upsert(data as Partial<Profile> & { id: string })
   );
   return result !== null;
 }
