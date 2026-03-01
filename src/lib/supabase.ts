@@ -307,7 +307,10 @@ export async function adminUpdateSubscription(
       .eq("id", userId)
       .select()
   , "adminUpdateSubscription");
-  return result !== null;
+  // result === null → erreur Supabase
+  // result === []   → aucune ligne modifiée (RLS ou ID introuvable)
+  // result === [{…}] → succès
+  return Array.isArray(result) && result.length > 0;
 }
 
 /** Récupère les demandes de paiement d'un utilisateur */

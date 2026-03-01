@@ -9,7 +9,7 @@ import {
   type PaymentRequest,
   type Profile,
 } from "../../lib/supabase";
-import { CheckCircle2, XCircle, Search, RefreshCw, ChevronDown, Shield } from "lucide-react";
+import { CheckCircle2, XCircle, Search, RefreshCw, ChevronDown, Shield, Loader } from "lucide-react";
 
 // IDs admin séparés par virgule dans VITE_ADMIN_IDS
 const ADMIN_IDS = (import.meta.env.VITE_ADMIN_IDS ?? "")
@@ -264,6 +264,12 @@ function SubscribersTab() {
   const [searching, setSearching] = useState(false);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,6 +291,9 @@ function SubscribersTab() {
         return { ...p, subscription_tier: tier, subscription_status: tier === "free" ? "canceled" : "active", subscription_expires_at: expiresAt };
       }));
       setExpandedId(null);
+      showToast(`Abonnement mis à jour : ${tier}${months > 0 ? ` — ${months} mois` : ""}`, true);
+    } else {
+      showToast("Échec de la mise à jour. Vérifiez les permissions Supabase (RLS).", false);
     }
     setActionUserId(null);
   };
@@ -304,6 +313,14 @@ function SubscribersTab() {
 
   return (
     <div>
+      {/* Toast feedback */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${toast.ok ? "bg-[#00A651]" : "bg-red-500"}`}>
+          {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+          {toast.msg}
+        </div>
+      )}
+
       <form onSubmit={handleSearch} className="flex gap-2 mb-4">
         <input
           type="email"
@@ -362,8 +379,9 @@ function SubscribersTab() {
                           key={d.months}
                           disabled={actionUserId === profile.id}
                           onClick={() => handleUpdateSub(profile.id, "standard", d.months)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-50 flex items-center gap-1"
                         >
+                          {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
                           {d.label}
                         </button>
                       ))}
@@ -378,8 +396,9 @@ function SubscribersTab() {
                           key={d.months}
                           disabled={actionUserId === profile.id}
                           onClick={() => handleUpdateSub(profile.id, "premium", d.months)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 transition disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 transition disabled:opacity-50 flex items-center gap-1"
                         >
+                          {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
                           {d.label}
                         </button>
                       ))}
@@ -389,8 +408,9 @@ function SubscribersTab() {
                   <button
                     disabled={actionUserId === profile.id}
                     onClick={() => handleUpdateSub(profile.id, "free", 0)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50 flex items-center gap-1"
                   >
+                    {actionUserId === profile.id && <Loader size={11} className="animate-spin" />}
                     Réinitialiser (Free)
                   </button>
                 </div>
