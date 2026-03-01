@@ -1,20 +1,64 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
 import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
 import { getAllArticles, getFeaturedArticles, toArticle } from "../../lib/sanity";
 import { getAllArticleViews } from "../../lib/supabase";
 import { ArticleCard } from "../components/ArticleCard";
+import { ScrollReveal } from "../components/ScrollReveal";
 import { MarketOverview } from "../components/MarketTicker";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { SubscriptionCTA } from "../components/SubscriptionCTA";
-import { BRVMChart, GDPChart, InvestmentChart } from "../components/FinancialChart";
+
+// Recharts chargé en lazy : ne pèse pas sur le bundle initial (~160 KB gzip évités)
+const BRVMChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.BRVMChart }))
+);
+const GDPChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.GDPChart }))
+);
+const InvestmentChart = lazy(() =>
+  import("../components/FinancialChart").then((m) => ({ default: m.InvestmentChart }))
+);
+
+/** Squelette d'une carte article (pendant le chargement) */
+function ArticleCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border overflow-hidden flex flex-col" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+      <div className="h-48 nfi-skeleton" />
+      <div className="p-4 space-y-2.5">
+        <div className="h-3.5 nfi-skeleton w-1/4" />
+        <div className="h-4 nfi-skeleton w-full" />
+        <div className="h-4 nfi-skeleton w-3/4" />
+        <div className="flex items-center gap-2 pt-2 mt-1 border-t" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+          <div className="w-6 h-6 rounded-full nfi-skeleton shrink-0" />
+          <div className="h-3 nfi-skeleton flex-1" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Squelette ligne article "Les plus lus" */
+function PopularSkeleton() {
+  return (
+    <div className="flex items-start gap-4 p-4 bg-white rounded-xl border" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+      <div className="w-10 h-8 nfi-skeleton shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3.5 nfi-skeleton w-full" />
+        <div className="h-3.5 nfi-skeleton w-2/3" />
+      </div>
+      <div className="w-16 h-12 nfi-skeleton rounded-lg shrink-0" />
+    </div>
+  );
+}
 
 export default function Home() {
-  const [featured, setFeatured]     = useState<Article[]>([]);
-  const [latest, setLatest]         = useState<Article[]>([]);
-  const [popular, setPopular]       = useState<Article[]>([]);
+  const [featured, setFeatured]       = useState<Article[]>([]);
+  const [latest, setLatest]           = useState<Article[]>([]);
+  const [popular, setPopular]         = useState<Article[]>([]);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
+  const [articlesLoading, setArticlesLoading] = useState(true);
 
   useEffect(() => {
     getFeaturedArticles()
@@ -39,7 +83,8 @@ export default function Home() {
         const byViews = [...articles].sort((a, b) => b.views - a.views);
         setPopular(byViews.slice(0, 4));
       })
-      .catch((err) => console.error('[Home] getAllArticles error:', err));
+      .catch((err) => console.error('[Home] getAllArticles error:', err))
+      .finally(() => setArticlesLoading(false));
   }, []);
 
   const categoryCounts = Object.fromEntries(
@@ -65,6 +110,7 @@ export default function Home() {
                   alt={featured[0].title}
                   className="w-full h-72 sm:h-96 lg:h-[480px] object-cover group-hover:scale-105 transition-transform duration-700"
                   loading="eager"
+                  fetchPriority="high"
                 />
                 <div className="absolute inset-0"
                   style={{ background: "linear-gradient(to top, rgba(13,27,53,0.95) 0%, rgba(13,27,53,0.5) 50%, transparent 100%)" }} />
@@ -156,149 +202,183 @@ export default function Home() {
           {/* Left: Latest articles */}
           <div className="lg:col-span-2 space-y-8">
             {/* Latest news */}
-            <div>
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-5 rounded-full" style={{ background: "#C9A84C" }} />
-                  <h2 className="text-gray-900 font-bold text-lg">Dernières actualités</h2>
+            <ScrollReveal>
+              <div>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 rounded-full" style={{ background: "#C9A84C" }} />
+                    <h2 className="text-gray-900 font-bold text-lg">Dernières actualités</h2>
+                  </div>
+                  <Link to="/section/economie-africaine"
+                    className="flex items-center gap-1 text-sm hover:underline" style={{ color: "#C9A84C" }}>
+                    Voir tout <ArrowRight size={14} />
+                  </Link>
                 </div>
-                <Link to="/section/economie-africaine"
-                  className="flex items-center gap-1 text-sm hover:underline" style={{ color: "#C9A84C" }}>
-                  Voir tout <ArrowRight size={14} />
-                </Link>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {articlesLoading
+                    ? Array.from({ length: 4 }).map((_, i) => <ArticleCardSkeleton key={i} />)
+                    : latest.map((article) => (
+                        <ArticleCard key={article.id} article={article} variant="grid" />
+                      ))
+                  }
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {latest.map((article) => (
-                  <ArticleCard key={article.id} article={article} variant="grid" />
-                ))}
-              </div>
-            </div>
+            </ScrollReveal>
 
             {/* Charts section */}
-            <div>
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-5 rounded-full" style={{ background: "#C9A84C" }} />
-                <h2 className="text-gray-900 font-bold text-lg">Marchés & Analyses</h2>
+            <ScrollReveal delay={80}>
+              <div>
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-1 h-5 rounded-full" style={{ background: "#C9A84C" }} />
+                  <h2 className="text-gray-900 font-bold text-lg">Marchés & Analyses</h2>
+                </div>
+                <Suspense fallback={
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="h-52 nfi-skeleton rounded-xl" />
+                    <div className="h-52 nfi-skeleton rounded-xl" />
+                  </div>
+                }>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <BRVMChart />
+                    <GDPChart />
+                  </div>
+                  <div className="mt-4">
+                    <InvestmentChart />
+                  </div>
+                </Suspense>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <BRVMChart />
-                <GDPChart />
-              </div>
-              <div className="mt-4">
-                <InvestmentChart />
-              </div>
-            </div>
+            </ScrollReveal>
 
             {/* Popular articles */}
-            <div>
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-5 rounded-full bg-red-500" />
-                  <h2 className="text-gray-900 font-bold text-lg">
-                    <TrendingUp size={16} className="inline text-red-500 mr-1" />
-                    Les plus lus
-                  </h2>
+            <ScrollReveal delay={120}>
+              <div>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 rounded-full bg-red-500" />
+                    <h2 className="text-gray-900 font-bold text-lg">
+                      <TrendingUp size={16} className="inline text-red-500 mr-1" />
+                      Les plus lus
+                    </h2>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {articlesLoading
+                    ? Array.from({ length: 4 }).map((_, i) => <PopularSkeleton key={i} />)
+                    : popular.map((article, index) => (
+                        <div key={article.id} className="flex items-start gap-4 p-4 bg-white rounded-xl border hover:shadow-md transition-all group"
+                          style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                          <div className="text-3xl font-black tabular-nums shrink-0"
+                            style={{ color: index === 0 ? "#D4A017" : index === 1 ? "#9ca3af" : index === 2 ? "#cd7f32" : "#e5e7eb" }}>
+                            {String(index + 1).padStart(2, "0")}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-semibold text-[#00A651] uppercase tracking-wider">
+                              {article.category}
+                            </span>
+                            <Link to={`/article/${article.slug}`}>
+                              <h4 className="text-sm text-gray-900 line-clamp-2 mt-0.5 group-hover:text-[#00A651] transition-colors leading-snug">
+                                {article.title}
+                              </h4>
+                            </Link>
+                            <p className="text-[10px] text-gray-400 mt-1">
+                              {article.views.toLocaleString("fr-FR")} vues
+                            </p>
+                          </div>
+                          <img src={article.cover} alt={article.title} className="w-16 h-12 object-cover rounded-lg shrink-0" loading="lazy" />
+                        </div>
+                      ))
+                  }
                 </div>
               </div>
-              <div className="space-y-3">
-                {popular.map((article, index) => (
-                  <div key={article.id} className="flex items-start gap-4 p-4 bg-white rounded-xl border hover:shadow-md transition-all group"
-                    style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-                    <div className="text-3xl font-black tabular-nums shrink-0"
-                      style={{ color: index === 0 ? "#D4A017" : index === 1 ? "#9ca3af" : index === 2 ? "#cd7f32" : "#e5e7eb" }}>
-                      {String(index + 1).padStart(2, "0")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] font-semibold text-[#00A651] uppercase tracking-wider">
-                        {article.category}
-                      </span>
-                      <Link to={`/article/${article.slug}`}>
-                        <h4 className="text-sm text-gray-900 line-clamp-2 mt-0.5 group-hover:text-[#00A651] transition-colors leading-snug">
-                          {article.title}
-                        </h4>
-                      </Link>
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {article.views.toLocaleString("fr-FR")} vues
-                      </p>
-                    </div>
-                    <img src={article.cover} alt={article.title} className="w-16 h-12 object-cover rounded-lg shrink-0" loading="lazy" />
-                  </div>
-                ))}
-              </div>
-            </div>
+            </ScrollReveal>
           </div>
 
           {/* Right sidebar */}
           <aside className="space-y-5">
             {/* Market overview */}
-            <MarketOverview />
+            <ScrollReveal delay={60}>
+              <MarketOverview />
+            </ScrollReveal>
 
             {/* Newsletter */}
-            <NewsletterSignup variant="compact" />
+            <ScrollReveal delay={120}>
+              <NewsletterSignup variant="compact" />
+            </ScrollReveal>
 
             {/* Subscription CTA */}
-            <SubscriptionCTA variant="sidebar" />
+            <ScrollReveal delay={180}>
+              <SubscriptionCTA variant="sidebar" />
+            </ScrollReveal>
 
             {/* Trending Tags */}
-            <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <h3 className="text-gray-900 font-semibold text-sm mb-3 flex items-center gap-2">
-                <TrendingUp size={14} style={{ color: "#C9A84C" }} /> Tags tendance
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {TRENDING_TAGS.map((tag) => (
-                  <Link
-                    key={tag}
-                    to={`/search?q=${encodeURIComponent(tag)}`}
-                    className="px-2.5 py-1 text-xs text-gray-600 bg-gray-100 rounded-full transition-colors hover:bg-[#C9A84C] hover:text-white"
-                  >
-                    #{tag}
-                  </Link>
-                ))}
+            <ScrollReveal delay={220}>
+              <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                <h3 className="text-gray-900 font-semibold text-sm mb-3 flex items-center gap-2">
+                  <TrendingUp size={14} style={{ color: "#C9A84C" }} /> Tags tendance
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {TRENDING_TAGS.map((tag) => (
+                    <Link
+                      key={tag}
+                      to={`/search?q=${encodeURIComponent(tag)}`}
+                      className="px-2.5 py-1 text-xs text-gray-600 bg-gray-100 rounded-full transition-colors hover:bg-[#C9A84C] hover:text-white"
+                    >
+                      #{tag}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
 
             {/* Categories */}
-            <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-              <h3 className="text-gray-900 font-semibold text-sm mb-3">Sections</h3>
-              <div className="space-y-1">
-                {CATEGORIES.map((cat) => (
-                  <Link
-                    key={cat.slug}
-                    to={`/section/${cat.slug}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
-                  >
-                    <span className="flex items-center gap-2 text-sm text-gray-700">
-                      {cat.name}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-400">{categoryCounts[cat.slug] ?? 0}</span>
-                      <ChevronRight size={12} className="text-gray-300 group-hover:text-[#00A651]" />
-                    </div>
-                  </Link>
-                ))}
+            <ScrollReveal delay={260}>
+              <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+                <h3 className="text-gray-900 font-semibold text-sm mb-3">Sections</h3>
+                <div className="space-y-1">
+                  {CATEGORIES.map((cat) => (
+                    <Link
+                      key={cat.slug}
+                      to={`/section/${cat.slug}`}
+                      className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-gray-700">
+                        {cat.name}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400">{categoryCounts[cat.slug] ?? 0}</span>
+                        <ChevronRight size={12} className="text-gray-300 group-hover:text-[#00A651]" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
 
             {/* Focus Niger highlight */}
-            <div className="rounded-xl overflow-hidden relative group">
-              <img
-                src="/focus-niger.jpg"
-                alt="Focus Niger"
-                className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,27,53,0.92), transparent)" }} />
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <span className="text-[10px] font-bold text-[#D4A017] uppercase tracking-wider">Focus Niger</span>
-                <h4 className="text-white text-sm font-medium mt-1 mb-2 leading-snug">
-                  Actualités économiques et politiques du Niger
-                </h4>
-                <Link to="/section/focus-niger"
-                  className="flex items-center gap-1 text-xs text-[#00A651] hover:underline">
-                  Voir les articles <ChevronRight size={11} />
-                </Link>
+            <ScrollReveal delay={300}>
+              <div className="rounded-xl overflow-hidden relative group">
+                <div className="nfi-img-wrap">
+                  <img
+                    src="/focus-niger.jpg"
+                    alt="Focus Niger"
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                    onLoad={(e) => (e.currentTarget as HTMLImageElement).classList.add("is-loaded")}
+                  />
+                </div>
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(13,27,53,0.92), transparent)" }} />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <span className="text-[10px] font-bold text-[#D4A017] uppercase tracking-wider">Focus Niger</span>
+                  <h4 className="text-white text-sm font-medium mt-1 mb-2 leading-snug">
+                    Actualités économiques et politiques du Niger
+                  </h4>
+                  <Link to="/section/focus-niger"
+                    className="flex items-center gap-1 text-xs text-[#00A651] hover:underline">
+                    Voir les articles <ChevronRight size={11} />
+                  </Link>
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
           </aside>
         </div>
       </div>
@@ -306,14 +386,18 @@ export default function Home() {
       {/* ======================================================
           SUBSCRIPTION CTA BANNER
       ====================================================== */}
-      <SubscriptionCTA variant="banner" />
+      <ScrollReveal>
+        <SubscriptionCTA variant="banner" />
+      </ScrollReveal>
 
       {/* ======================================================
           NEWSLETTER
       ====================================================== */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <NewsletterSignup variant="default" />
-      </div>
+      <ScrollReveal delay={60}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <NewsletterSignup variant="default" />
+        </div>
+      </ScrollReveal>
     </div>
   );
 }

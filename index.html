@@ -94,6 +94,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.sanity.io" />
 
+    <!-- Polices Google : chargement non-bloquant (media=print trick)
+         Poids réduits : Inter 400/500/600/700 + Playfair 400/700/400i
+         (était 16 variantes → 7, économie ~60% sur le poids polices) -->
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap"
+      media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" />
+    </noscript>
+
     <!-- Sentry — defer pour ne pas bloquer le rendu initial -->
     <script
       src="https://js.sentry-cdn.com/46d006686fbbd9af84d462e794440ff7.min.js"

@@ -31,15 +31,6 @@ export interface Article {
   comments: number;
 }
 
-export interface Comment {
-  id: string;
-  author: string;
-  avatar: string;
-  content: string;
-  date: string;
-  likes: number;
-}
-
 export interface SubscriptionPlan {
   id: string;
   name: string;
@@ -49,16 +40,6 @@ export interface SubscriptionPlan {
   badge?: string;
   features: string[];
   highlighted: boolean;
-}
-
-export interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  bio: string;
-  linkedin?: string;
-  twitter?: string;
 }
 
 // ============================================================
@@ -490,36 +471,6 @@ export const CATEGORIES = [
 ];
 
 // ============================================================
-// COMMENTS
-// ============================================================
-export const COMMENTS: Comment[] = [
-  {
-    id: "c1",
-    author: "Moussa Abdou",
-    avatar: "https://images.unsplash.com/photo-1731093714827-ba0353e09bfb?w=50&h=50&fit=crop&crop=face",
-    content: "Excellente analyse. La question des taux d'intérêt sur les PME est cruciale pour notre économie. Il faudrait aussi aborder les mécanismes de garantie mis en place par les États.",
-    date: "2026-02-24T10:15:00",
-    likes: 24,
-  },
-  {
-    id: "c2",
-    author: "Aminata Coulibaly",
-    avatar: "https://images.unsplash.com/photo-1739300293504-234817eead52?w=50&h=50&fit=crop&crop=face",
-    content: "Article très documenté. Je souhaiterais voir une comparaison avec les politiques monétaires d'autres banques centrales africaines (BEAC notamment).",
-    date: "2026-02-23T15:30:00",
-    likes: 18,
-  },
-  {
-    id: "c3",
-    author: "Seyni Maïga",
-    avatar: "https://images.unsplash.com/photo-1742996111692-2d924f12a058?w=50&h=50&fit=crop&crop=face",
-    content: "En tant qu'entrepreneur, je confirme que l'accès au crédit est notre principal obstacle. Les microfinances ne peuvent pas financer des projets d'envergure.",
-    date: "2026-02-22T09:45:00",
-    likes: 31,
-  },
-];
-
-// ============================================================
 // SUBSCRIPTION PLANS
 // ============================================================
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -571,47 +522,6 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       "Accès Early pour les analyses",
     ],
     highlighted: false,
-  },
-];
-
-// ============================================================
-// TEAM MEMBERS
-// ============================================================
-export const TEAM_MEMBERS: TeamMember[] = [
-  {
-    id: "t1",
-    name: "Hassane Ibrahim",
-    role: "Directeur Général",
-    avatar: "https://images.unsplash.com/photo-1731093714827-ba0353e09bfb?w=300&h=300&fit=crop&crop=face",
-    bio: "Fondateur de NFI REPORT, Hassane a plus de 20 ans d'expérience dans le journalisme économique et financier en Afrique.",
-    linkedin: "#",
-    twitter: "#",
-  },
-  {
-    id: "t2",
-    name: "Mariama Touré",
-    role: "Directrice Éditoriale",
-    avatar: "https://images.unsplash.com/photo-1739300293504-234817eead52?w=300&h=300&fit=crop&crop=face",
-    bio: "Ancienne correspondante pour des médias internationaux, Mariama supervise la ligne éditoriale et garantit la rigueur journalistique de la rédaction.",
-    linkedin: "#",
-    twitter: "#",
-  },
-  {
-    id: "t3",
-    name: "Issoufou Garba",
-    role: "Chef Analyste Financier",
-    avatar: "https://images.unsplash.com/photo-1742996111692-2d924f12a058?w=300&h=300&fit=crop&crop=face",
-    bio: "CFA charterholder, Issoufou dirige l'équipe d'analystes financiers et coordonne la production des rapports de marché.",
-    linkedin: "#",
-  },
-  {
-    id: "t4",
-    name: "Roukayatou Moussa",
-    role: "Responsable Développement",
-    avatar: "https://images.unsplash.com/photo-1739300293504-234817eead52?w=300&h=300&fit=crop&crop=face",
-    bio: "Spécialiste en stratégie média et développement commercial, Roukayatou gère les partenariats et la croissance de la plateforme.",
-    linkedin: "#",
-    twitter: "#",
   },
 ];
 
@@ -680,26 +590,6 @@ export const TRENDING_TAGS = [
   "Investissement", "Dollar", "IMF", "Inflation",
 ];
 
-// ============================================================
-// SAVED ARTICLES (pour le profil utilisateur)
-// ============================================================
-export const SAVED_ARTICLES = [ARTICLES[0], ARTICLES[2], ARTICLES[6]];
-
-// ============================================================
-// USER PROFILE (mock)
-// ============================================================
-export const MOCK_USER = {
-  id: "u1",
-  name: "Oumarou Sanda",
-  email: "oumarou.sanda@example.com",
-  avatar: "https://images.unsplash.com/photo-1731093714827-ba0353e09bfb?w=100&h=100&fit=crop&crop=face",
-  subscription: "Standard",
-  subscriptionExpiry: "2026-12-31",
-  joinedAt: "2024-03-15",
-  savedArticles: SAVED_ARTICLES,
-  readArticles: 47,
-};
-
 // Helper
 export function getArticlesByCategory(slug: string): Article[] {
   return ARTICLES.filter((a) => a.categorySlug === slug);
@@ -711,12 +601,6 @@ export function getArticleBySlug(slug: string): Article | undefined {
 
 export function getFeaturedArticles(): Article[] {
   return ARTICLES.filter((a) => a.featured);
-}
-
-export function getRelatedArticles(article: Article, limit = 4): Article[] {
-  return ARTICLES.filter(
-    (a) => a.id !== article.id && a.categorySlug === article.categorySlug
-  ).slice(0, limit);
 }
 
 export function searchArticles(query: string): Article[] {

@@ -106,6 +106,70 @@ END $$;
 CREATE INDEX IF NOT EXISTS profiles_subscription_tier_idx ON public.profiles (subscription_tier);
 CREATE INDEX IF NOT EXISTS payment_requests_user_id_idx   ON public.payment_requests (user_id);
 CREATE INDEX IF NOT EXISTS payment_requests_status_idx    ON public.payment_requests (status);
+
+-- ── Market data (ticker dynamique) ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.market_data (
+  id            SERIAL      PRIMARY KEY,
+  type          TEXT        NOT NULL CHECK (type IN ('index', 'commodity')),
+  name          TEXT        NOT NULL,
+  value         NUMERIC     NOT NULL DEFAULT 0,
+  change_abs    NUMERIC     NOT NULL DEFAULT 0,
+  change_pct    TEXT        NOT NULL DEFAULT '+0.00%',
+  unit          TEXT,
+  display_order INTEGER     NOT NULL DEFAULT 0,
+  is_active     BOOLEAN     NOT NULL DEFAULT true,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE IF EXISTS public.market_data ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  BEGIN CREATE POLICY "market_data_read" ON public.market_data FOR SELECT TO anon, authenticated USING (true); EXCEPTION WHEN duplicate_object THEN NULL; END;
+END $$;
+-- Données par défaut si table vide
+INSERT INTO public.market_data (type, name, value, change_abs, change_pct, unit, display_order)
+SELECT * FROM (VALUES
+  ('index'::text, 'BRVM Composite',  342.15,   2.3,    '+0.68%', NULL::text, 1),
+  ('index',       'JSE All Share',   84210.5,  -320.1, '-0.38%', NULL,       2),
+  ('index',       'NGX ASI',         104320.0,  1250.0, '+1.21%', NULL,      3),
+  ('index',       'EGX 30',          29840.3,   180.5, '+0.61%', NULL,       4),
+  ('index',       'NSE 20 (Kenya)',   1840.7,   -12.4,  '-0.67%', NULL,      5),
+  ('commodity',   'Pétrole Brent',    82.4,      0.3,  '+0.37%', '$/bbl',    1),
+  ('commodity',   'Or',             2018.5,     -5.2,  '-0.26%', '$/oz',     2),
+  ('commodity',   'Cacao',          4250.0,     85.0,  '+2.04%', '$/t',      3),
+  ('commodity',   'Uranium',          91.5,      1.5,  '+1.67%', '$/lb',     4),
+  ('commodity',   'Coton',             0.85,    -0.01, '-1.16%', '$/lb',     5)
+) AS v(type,name,value,change_abs,change_pct,unit,display_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.market_data LIMIT 1);
+
+-- ── Site config (sections nav, etc.) ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.site_config (
+  key        TEXT        PRIMARY KEY,
+  value      JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE IF EXISTS public.site_config ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  BEGIN CREATE POLICY "site_config_read" ON public.site_config FOR SELECT TO anon, authenticated USING (true); EXCEPTION WHEN duplicate_object THEN NULL; END;
+END $$;
+INSERT INTO public.site_config (key, value) VALUES (
+  'nav_sections',
+  '[{"label":"Économie Africaine","slug":"economie-africaine","icon":"Globe"},{"label":"Économie Mondiale","slug":"economie-mondiale","icon":"TrendingUp"},{"label":"Focus Niger","slug":"focus-niger","icon":"MapPin"},{"label":"Analyses de Marché","slug":"analyses-de-marche","icon":"BarChart2"}]'::jsonb
+) ON CONFLICT (key) DO NOTHING;
+
+-- ── Contact messages ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT        NOT NULL DEFAULT '',
+  email      TEXT        NOT NULL DEFAULT '',
+  subject    TEXT        NOT NULL DEFAULT '',
+  message    TEXT        NOT NULL DEFAULT '',
+  is_read    BOOLEAN     NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE IF EXISTS public.contact_messages ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  BEGIN CREATE POLICY "contact_insert" ON public.contact_messages FOR INSERT TO anon, authenticated WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TABLE public.contact_messages ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT false; EXCEPTION WHEN duplicate_column THEN NULL; END;
+END $$;
 `;
 
 // ─── Migration (lazy, idempotent) ────────────────────────────────────────────
@@ -254,6 +318,107 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── GET : tableau de bord CEO ────────────────────────────────────────────
+    if (action === "get_dashboard") {
+      const [profilesR, commentsR, contactR, paymentsR, allCommentsR] = await Promise.all([
+        sb.from("profiles").select("id, email, full_name, avatar_url, subscription_tier, created_at"),
+        sb.from("comments").select("*").order("created_at", { ascending: false }).limit(15),
+        sb.from("contact_messages").select("*").order("created_at", { ascending: false }).limit(15),
+        sb.from("payment_requests").select("id, status, amount, user_name, user_email, plan_name, created_at").order("created_at", { ascending: false }).limit(20),
+        sb.from("comments").select("user_id, author_name, author_avatar").limit(1000),
+      ]);
+      const profiles = profilesR.data ?? [];
+      const payments = paymentsR.data ?? [];
+      // Utilisateurs les plus actifs (par nb de commentaires)
+      const counts: Record<string, { user_id: string; author_name: string; author_avatar: string | null; count: number }> = {};
+      for (const c of (allCommentsR.data ?? [])) {
+        if (!counts[c.user_id]) counts[c.user_id] = { user_id: c.user_id, author_name: c.author_name, author_avatar: c.author_avatar, count: 0 };
+        counts[c.user_id].count++;
+      }
+      const activeUsers = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 8);
+      const verifiedRevenue = payments.filter((p: { status: string; amount: number }) => p.status === "verified").reduce((s: number, p: { amount: number }) => s + (p.amount ?? 0), 0);
+      return res.json({
+        stats: {
+          total_users: profiles.length,
+          premium: profiles.filter((p: { subscription_tier: string }) => p.subscription_tier === "premium").length,
+          standard: profiles.filter((p: { subscription_tier: string }) => p.subscription_tier === "standard").length,
+          free: profiles.filter((p: { subscription_tier: string }) => p.subscription_tier === "free").length,
+          total_revenue: verifiedRevenue,
+          pending_payments: payments.filter((p: { status: string }) => p.status === "pending").length,
+        },
+        recent_comments: commentsR.data ?? [],
+        contact_messages: contactR.data ?? [],
+        active_users: activeUsers,
+        recent_payments: payments,
+      });
+    }
+
+    // ── GET : messages de contact ────────────────────────────────────────────
+    if (action === "get_contact_messages") {
+      const { data, error } = await sb.from("contact_messages").select("*").order("created_at", { ascending: false }).limit(100);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data ?? []);
+    }
+
+    // ── POST : marquer message contact comme lu ──────────────────────────────
+    if (action === "mark_contact_read" && req.method === "POST") {
+      const { id } = req.body ?? {};
+      if (!id) return res.status(400).json({ error: "id requis" });
+      const { error } = await sb.from("contact_messages").update({ is_read: true }).eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── GET : données marchés ────────────────────────────────────────────────
+    if (action === "get_market_data") {
+      const { data, error } = await sb.from("market_data").select("*").order("type").order("display_order");
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data ?? []);
+    }
+
+    // ── POST : mettre à jour un item marché ──────────────────────────────────
+    if (action === "update_market_item" && req.method === "POST") {
+      const { id, name, value, change_abs, change_pct, unit } = req.body ?? {};
+      if (!id) return res.status(400).json({ error: "id requis" });
+      const { error } = await sb.from("market_data").update({ name, value: Number(value), change_abs: Number(change_abs), change_pct, unit: unit || null, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── POST : ajouter un item marché ────────────────────────────────────────
+    if (action === "add_market_item" && req.method === "POST") {
+      const { type, name, value, change_abs, change_pct, unit, display_order } = req.body ?? {};
+      if (!type || !name) return res.status(400).json({ error: "type et name requis" });
+      const { error } = await sb.from("market_data").insert({ type, name, value: Number(value ?? 0), change_abs: Number(change_abs ?? 0), change_pct: change_pct ?? '+0.00%', unit: unit || null, display_order: Number(display_order ?? 99) });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── POST : supprimer un item marché ──────────────────────────────────────
+    if (action === "delete_market_item" && req.method === "POST") {
+      const { id } = req.body ?? {};
+      if (!id) return res.status(400).json({ error: "id requis" });
+      const { error } = await sb.from("market_data").delete().eq("id", id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── GET : sections de navigation ─────────────────────────────────────────
+    if (action === "get_sections") {
+      const { data, error } = await sb.from("site_config").select("value").eq("key", "nav_sections").single();
+      if (error) return res.json([]);
+      return res.json(data?.value ?? []);
+    }
+
+    // ── POST : mettre à jour les sections de navigation ──────────────────────
+    if (action === "update_sections" && req.method === "POST") {
+      const { sections } = req.body ?? {};
+      if (!Array.isArray(sections)) return res.status(400).json({ error: "sections (array) requis" });
+      const { error } = await sb.from("site_config").upsert({ key: "nav_sections", value: sections, updated_at: new Date().toISOString() });
       if (error) return res.status(500).json({ error: error.message });
       return res.json({ success: true });
     }

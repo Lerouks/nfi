@@ -45,11 +45,13 @@ export default defineConfig({
         manualChunks: {
           // Framework React
           'vendor-react': ['react', 'react-dom', 'react-router'],
-          // Sanity CMS client
-          'vendor-sanity': ['@sanity/client'],
+          // Clerk Auth (lazy dans App.tsx)
+          'vendor-clerk': ['@clerk/clerk-react'],
+          // Sanity CMS + portable text
+          'vendor-sanity': ['@sanity/client', '@sanity/image-url', '@portabletext/react'],
           // Supabase
           'vendor-supabase': ['@supabase/supabase-js'],
-          // Graphiques Recharts
+          // Recharts (lazy-loadé depuis Home.tsx via FinancialChart)
           'vendor-recharts': ['recharts'],
         },
       },

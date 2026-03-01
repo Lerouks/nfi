@@ -17,12 +17,15 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
   if (variant === "compact") {
     return (
       <div className="flex items-start gap-3 group">
-        <img
-          src={article.cover}
-          alt={article.title}
-          className="w-20 h-16 object-cover rounded-lg shrink-0"
-          loading="lazy"
-        />
+        <div className="nfi-img-wrap rounded-lg shrink-0 w-20 h-16">
+          <img
+            src={article.cover}
+            alt={article.title}
+            className="w-20 h-16 object-cover rounded-lg"
+            loading="lazy"
+            onLoad={(e) => (e.currentTarget as HTMLImageElement).classList.add("is-loaded")}
+          />
+        </div>
         <div className="min-w-0">
           <span className="text-[10px] font-semibold text-[#00A651] uppercase tracking-wider">
             {article.category}
@@ -52,12 +55,15 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
       <article className="flex items-start gap-4 p-4 bg-white rounded-xl border hover:shadow-md transition-all group"
         style={{ borderColor: "rgba(0,0,0,0.08)" }}>
         <Link to={`/article/${article.slug}`} className="shrink-0">
-          <img
-            src={article.cover}
-            alt={article.title}
-            className="w-32 sm:w-40 h-24 sm:h-28 object-cover rounded-lg"
-            loading="lazy"
-          />
+          <div className="nfi-img-wrap rounded-lg w-32 sm:w-40 h-24 sm:h-28">
+            <img
+              src={article.cover}
+              alt={article.title}
+              className="w-32 sm:w-40 h-24 sm:h-28 object-cover rounded-lg"
+              loading="lazy"
+              onLoad={(e) => (e.currentTarget as HTMLImageElement).classList.add("is-loaded")}
+            />
+          </div>
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
@@ -112,13 +118,14 @@ export function ArticleCard({ article, variant = "grid", showExcerpt = false }: 
   return (
     <article className="bg-white rounded-xl border overflow-hidden hover:shadow-lg transition-all group flex flex-col"
       style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden nfi-img-wrap">
         <Link to={`/article/${article.slug}`}>
           <img
             src={article.cover}
             alt={article.title}
             className={`w-full object-cover group-hover:scale-105 transition-transform duration-500 ${variant === "featured" ? "h-64 sm:h-80" : "h-48"}`}
             loading="lazy"
+            onLoad={(e) => (e.currentTarget as HTMLImageElement).classList.add("is-loaded")}
           />
         </Link>
         <div className="absolute top-3 left-3 flex gap-2">
