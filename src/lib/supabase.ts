@@ -5,8 +5,9 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
  * Une seule instance GoTrueClient dans tout le browser context.
  */
 
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      ?? "";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const SUPABASE_URL         = import.meta.env.VITE_SUPABASE_URL          ?? "";
+const SUPABASE_ANON_KEY    = import.meta.env.VITE_SUPABASE_ANON_KEY    ?? "";
+const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_KEY ?? "";
 
 const SUPABASE_READY =
   SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.startsWith("eyJ");
@@ -14,11 +15,14 @@ const SUPABASE_READY =
 // ─── Singleton ────────────────────────────────────────────────────────────────
 // On stocke l'instance sur globalThis pour éviter les multiples GoTrueClient
 // lors des re-rendus HMR ou des imports depuis plusieurs modules.
-const SINGLETON_KEY = "__nfi_supabase_client__";
+const SINGLETON_KEY       = "__nfi_supabase_client__";
+const SINGLETON_ADMIN_KEY = "__nfi_supabase_admin_client__";
 
 declare global {
   // eslint-disable-next-line no-var
   var __nfi_supabase_client__: SupabaseClient | undefined;
+  // eslint-disable-next-line no-var
+  var __nfi_supabase_admin_client__: SupabaseClient | undefined;
 }
 
 function getSupabaseClient(): SupabaseClient {
@@ -42,7 +46,24 @@ function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
-export const supabase = getSupabaseClient();
+/** Client admin avec la Service Role Key — bypass le RLS Supabase.
+ *  Requiert VITE_SUPABASE_SERVICE_KEY dans les variables d'environnement. */
+function getAdminSupabaseClient(): SupabaseClient {
+  if (globalThis[SINGLETON_ADMIN_KEY]) {
+    return globalThis[SINGLETON_ADMIN_KEY] as SupabaseClient;
+  }
+  const key = SUPABASE_SERVICE_KEY.startsWith("eyJ") ? SUPABASE_SERVICE_KEY : SUPABASE_ANON_KEY;
+  const client = createClient(
+    SUPABASE_READY ? SUPABASE_URL : "https://placeholder.supabase.co",
+    SUPABASE_READY ? key : "placeholder-key",
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  globalThis[SINGLETON_ADMIN_KEY] = client;
+  return client;
+}
+
+export const supabase      = getSupabaseClient();
+const        adminSupabase = getAdminSupabaseClient();
 
 // ─── Helper : ignore toutes les requêtes si Supabase n'est pas configuré ─────
 async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
@@ -265,13 +286,13 @@ export async function adminUpdatePaymentRequest(
   adminNote?: string
 ): Promise<boolean> {
   const result = await safeQuery(() =>
-    supabase
+    adminSupabase
       .from("payment_requests")
       .update({ status, admin_note: adminNote ?? null, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
   , "adminUpdatePaymentRequest");
-  return result !== null;
+  return Array.isArray(result) && result.length > 0;
 }
 
 /** [Admin] Recherche des profils par email */
@@ -296,7 +317,7 @@ export async function adminUpdateSubscription(
     ? null
     : new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
   const result = await safeQuery(() =>
-    supabase
+    adminSupabase
       .from("profiles")
       .update({
         subscription_tier:       tier,
