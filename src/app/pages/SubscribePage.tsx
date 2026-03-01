@@ -9,6 +9,7 @@ import { SUBSCRIPTION_PLANS, formatPrice } from "../data/mockData";
 import { savePaymentRequest } from "../../lib/supabase";
 import { useUser } from "@clerk/clerk-react";
 import { useClerkActive } from "../../lib/clerkActive";
+import { useSubscription, type SubscriptionTier } from "../../lib/subscription";
 
 const FAQ = [
   {
@@ -36,21 +37,26 @@ const FAQ = [
 // ─── Wrapper Clerk — lit l'utilisateur uniquement quand ClerkProvider est actif ─
 function SubscribePageWithClerk() {
   const { user, isSignedIn } = useUser();
-  return <SubscribePageContent user={user} isSignedIn={!!isSignedIn} />;
+  const subscription = useSubscription(isSignedIn && user ? user.id : null);
+  return <SubscribePageContent user={user} isSignedIn={!!isSignedIn} currentTier={subscription.tier} tierLoading={subscription.isLoading} />;
 }
 
 export default function SubscribePage() {
   const clerkActive = useClerkActive();
   if (clerkActive) return <SubscribePageWithClerk />;
-  return <SubscribePageContent user={null} isSignedIn={false} />;
+  return <SubscribePageContent user={null} isSignedIn={false} currentTier="free" tierLoading={false} />;
 }
 
 function SubscribePageContent({
   user,
   isSignedIn,
+  currentTier,
+  tierLoading,
 }: {
   user: ReturnType<typeof useUser>["user"];
   isSignedIn: boolean;
+  currentTier: SubscriptionTier;
+  tierLoading: boolean;
 }) {
 
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
@@ -145,6 +151,36 @@ function SubscribePageContent({
       setPaymentError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
     }
   };
+
+  // ── Déjà abonné au meilleur plan → écran dédié ──────────────────────────────
+  if (!tierLoading && isSignedIn && currentTier === "premium") {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border p-8 sm:p-12 max-w-md w-full text-center shadow-lg"
+          style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: "linear-gradient(135deg, #C9A84C22, #C9A84C44)" }}>
+            <Star size={28} style={{ color: "#C9A84C" }} />
+          </div>
+          <h1 className="text-gray-900 text-2xl mb-2">Vous êtes déjà Premium</h1>
+          <p className="text-gray-500 text-sm mb-6">
+            Vous bénéficiez déjà du meilleur plan NFI REPORT avec un accès illimité à tout le contenu.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link to="/"
+              className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-full hover:bg-gray-50 transition text-center">
+              Retour à l'accueil
+            </Link>
+            <Link to="/profile?tab=subscription"
+              className="flex-1 py-2.5 text-sm font-medium text-white rounded-full transition text-center"
+              style={{ background: "linear-gradient(135deg, #C9A84C, #b8942a)" }}>
+              Mon abonnement
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (paymentState === "pending" && plan) {
     return (
@@ -546,8 +582,22 @@ function SubscribePageContent({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {SUBSCRIPTION_PLANS.map((plan) => (
+          {/* Standard → message de montée en gamme */}
+          {!tierLoading && isSignedIn && currentTier === "standard" && (
+            <div className="mb-8 p-4 rounded-xl text-sm text-center font-medium text-white"
+              style={{ background: "linear-gradient(135deg, #C9A84C, #b8942a)" }}>
+              ✦ Vous êtes sur le plan Standard — passez en Premium pour débloquer tout le contenu exclusif.
+            </div>
+          )}
+
+          <div className={`grid gap-5 ${(!tierLoading && isSignedIn && currentTier === "standard") ? "grid-cols-1 max-w-sm mx-auto" : "grid-cols-1 sm:grid-cols-3"}`}>
+            {SUBSCRIPTION_PLANS
+              .filter((p) => {
+                // Standard → masquer les plans free et standard (déjà souscrits)
+                if (!tierLoading && isSignedIn && currentTier === "standard") return p.id === "premium";
+                return true;
+              })
+              .map((plan) => (
               <div
                 key={plan.id}
                 className={`relative bg-white rounded-2xl border overflow-hidden transition-all ${

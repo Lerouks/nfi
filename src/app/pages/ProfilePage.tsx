@@ -132,12 +132,25 @@ function ProfileContent({
     getUserComments(userId, 20).then(setUserComments).catch(() => {});
   }, [userId]);
 
-  const [notifPrefs, setNotifPrefs] = useState([
+  const NOTIF_DEFAULTS = [
     { id: "newsletter",  label: "Newsletter quotidienne",  sub: "Résumé des actualités chaque matin",    enabled: true  },
     { id: "breaking",    label: "Alertes breaking news",   sub: "Nouvelles urgentes en temps réel",      enabled: true  },
     { id: "reports",     label: "Rapports financiers",     sub: "Nouveaux rapports premium disponibles", enabled: false },
     { id: "comments",    label: "Commentaires",            sub: "Réponses à vos commentaires",           enabled: true  },
-  ]);
+  ];
+
+  const [notifPrefs, setNotifPrefs] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`nfi_notif_${userId}`);
+      if (stored) return JSON.parse(stored) as typeof NOTIF_DEFAULTS;
+    } catch {}
+    return NOTIF_DEFAULTS;
+  });
+
+  // Persister à chaque changement
+  useEffect(() => {
+    try { localStorage.setItem(`nfi_notif_${userId}`, JSON.stringify(notifPrefs)); } catch {}
+  }, [notifPrefs, userId]);
 
   const toggleNotif = (id: string) =>
     setNotifPrefs((prev) => prev.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p)));
@@ -504,8 +517,20 @@ function ProfileContent({
                       <Link to="/subscribe"
                         className="flex-1 py-2.5 text-sm font-medium text-white rounded-full text-center transition hover:opacity-90"
                         style={{ background: "#00A651" }}>
-                        Passer à l'abonnement
+                        Choisir un abonnement
                       </Link>
+                    ) : tier === "standard" ? (
+                      <>
+                        <Link to="/subscribe"
+                          className="flex-1 py-2.5 text-sm font-medium text-white rounded-full text-center transition hover:opacity-90"
+                          style={{ background: "linear-gradient(135deg, #C9A84C, #b8942a)" }}>
+                          ✦ Passer en Premium
+                        </Link>
+                        <a href="mailto:contact@nfireport.com?subject=Annulation abonnement"
+                          className="py-2.5 px-4 text-sm font-medium text-gray-600 rounded-full border border-gray-200 hover:bg-gray-50 transition text-center">
+                          Annuler
+                        </a>
+                      </>
                     ) : (
                       <a href="mailto:contact@nfireport.com?subject=Annulation abonnement"
                         className="flex-1 py-2.5 text-sm font-medium text-gray-600 rounded-full border border-gray-200 hover:bg-gray-50 transition text-center">

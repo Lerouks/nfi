@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { MARKET_DATA, searchArticles } from "../data/mockData";
 import logoImg from "@/assets/logo";
-import { ClerkNavAuth, ClerkMobileAuth } from "./ClerkNavAuth";
+import { ClerkNavAuth, ClerkMobileAuth, NavSubscribeButton } from "./ClerkNavAuth";
 import { NotificationPanel } from "./NotificationPanel";
 import { useSavedArticles } from "../../lib/savedArticles";
 import { useClerkActive } from "../../lib/clerkActive";
@@ -285,14 +285,18 @@ export function Navbar() {
               {/* Notifications */}
               <NotificationPanel />
 
-              {/* Subscribe CTA */}
-              <Link
-                to="/subscribe"
-                className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm text-white rounded-full font-medium transition-all hover:opacity-90 active:scale-95"
-                style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}
-              >
-                <Star size={13} /> S'abonner
-              </Link>
+              {/* Subscribe CTA — conditionnel selon tier */}
+              {clerkActive ? (
+                <NavSubscribeButton />
+              ) : (
+                <Link
+                  to="/subscribe"
+                  className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm text-white rounded-full font-medium transition-all hover:opacity-90 active:scale-95"
+                  style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}
+                >
+                  <Star size={13} /> S'abonner
+                </Link>
+              )}
 
               {/* User menu */}
               {clerkActive ? (
@@ -424,13 +428,17 @@ export function Navbar() {
             {clerkActive && <ClerkMobileAuth onClose={() => setMobileOpen(false)} />}
 
             <div className="pt-2">
-              <Link
-                to="/subscribe"
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-white rounded-full font-medium"
-                style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}
-              >
-                <Star size={14} /> S'abonner
-              </Link>
+              {clerkActive ? (
+                <NavSubscribeButton mobile />
+              ) : (
+                <Link
+                  to="/subscribe"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-white rounded-full font-medium"
+                  style={{ background: "linear-gradient(135deg, #00A651, #008c44)" }}
+                >
+                  <Star size={14} /> S'abonner
+                </Link>
+              )}
             </div>
           </div>
         )}

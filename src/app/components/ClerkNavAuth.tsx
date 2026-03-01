@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { useUser, SignInButton, UserButton } from "@clerk/clerk-react";
 import { Link } from "react-router";
 import { User, LogIn, Star } from "lucide-react";
+import { useSubscription } from "../../lib/subscription";
 
 export function ClerkNavAuth() {
   const { isSignedIn, isLoaded } = useUser();
@@ -118,5 +119,46 @@ export function ClerkMobileAuth({ onClose }: { onClose: () => void }) {
         Se connecter
       </button>
     </SignInButton>
+  );
+}
+
+// ─── Bouton "S'abonner" conditionnel selon le tier ────────────────────────────
+// - premium  → masqué (déjà au meilleur plan)
+// - standard → "Passer en Premium"
+// - free / non connecté → "S'abonner"
+export function NavSubscribeButton({ mobile = false }: { mobile?: boolean }) {
+  const { isSignedIn, user, isLoaded } = useUser();
+  const subscription = useSubscription(isSignedIn && user ? user.id : null);
+  const tier = subscription.tier;
+
+  // Premium → rien à afficher
+  if (isLoaded && !subscription.isLoading && isSignedIn && tier === "premium") return null;
+
+  const isPremiumUpgrade = isLoaded && !subscription.isLoading && isSignedIn && tier === "standard";
+  const label = isPremiumUpgrade ? "Passer en Premium" : "S'abonner";
+  const style = isPremiumUpgrade
+    ? { background: "linear-gradient(135deg, #C9A84C, #b8942a)" }
+    : { background: "linear-gradient(135deg, #00A651, #008c44)" };
+
+  if (mobile) {
+    return (
+      <Link
+        to="/subscribe"
+        className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-white rounded-full font-medium"
+        style={style}
+      >
+        <Star size={14} /> {label}
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      to="/subscribe"
+      className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm text-white rounded-full font-medium transition-all hover:opacity-90 active:scale-95"
+      style={style}
+    >
+      <Star size={13} /> {label}
+    </Link>
   );
 }
