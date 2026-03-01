@@ -60,6 +60,8 @@ function PageLoader() {
 }
 
 export function Layout() {
+  const location = useLocation();
+
   return (
     <SavedArticlesProvider>
       <div className="min-h-screen flex flex-col">
@@ -68,7 +70,11 @@ export function Layout() {
         <Navbar />
         <main id="main-content" className="flex-1" role="main">
           <Suspense fallback={<PageLoader />}>
-            <Outlet />
+            {/* La clé sur ce div force un remontage à chaque changement de route,
+                ce qui relance l'animation CSS nfi-page-enter (fade + slide). */}
+            <div key={location.key} className="nfi-page-enter">
+              <Outlet />
+            </div>
           </Suspense>
         </main>
         <Footer />
