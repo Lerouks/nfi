@@ -596,11 +596,10 @@ export async function getNavSections(): Promise<NavSection[]> {
   if (!SUPABASE_READY || cbIsOpen('site_config')) return [];
   try {
     const { data, error } = await supabase
-      .from("site_config").select("value").eq("key", "nav_sections").single();
+      .from("site_config").select("value").eq("key", "nav_sections").maybeSingle();
     if (error) {
       if (TABLE_MISSING_CODES.has((error as any).code)) cbOpen('site_config');
-      else if ((error as any).code !== 'PGRST116') // PGRST116 = 0 rows → table existe mais vide
-        console.warn("[Supabase] site_config –", error);
+      else console.warn("[Supabase] site_config –", error);
       return [];
     }
     cbClose('site_config');
@@ -665,8 +664,12 @@ export async function getChartData(): Promise<ChartData | null> {
   if (!SUPABASE_READY || cbIsOpen('site_config')) return null;
   try {
     const { data, error } = await supabase
-      .from("site_config").select("value").eq("key", "chart_data").single();
-    if (error) return null;
+      .from("site_config").select("value").eq("key", "chart_data").maybeSingle();
+    if (error) {
+      if (TABLE_MISSING_CODES.has((error as any).code)) cbOpen('site_config');
+      return null;
+    }
+    cbClose('site_config');
     return (data as { value: ChartData } | null)?.value ?? null;
   } catch { return null; }
 }
