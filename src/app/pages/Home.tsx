@@ -92,6 +92,13 @@ export default function Home() {
       .finally(() => setArticlesLoading(false));
   }, []);
 
+  useEffect(() => {
+    document.title = "NFI REPORT — Actualités économiques et financières au Niger et en Afrique";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", "https://www.nfireport.com/");
+  }, []);
+
   const categoryCounts = Object.fromEntries(
     navSections.map((s) => [
       s.slug,
@@ -101,6 +108,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
+      <h1 className="sr-only">NFI REPORT — Actualités économiques et financières au Niger et en Afrique</h1>
       {/* ======================================================
           HERO SECTION
       ====================================================== */}
@@ -129,9 +137,9 @@ export default function Home() {
                     </span>
                   </div>
                   <Link to={`/article/${featured[0].slug}`}>
-                    <h1 className="text-white text-xl sm:text-2xl lg:text-3xl mb-3 leading-snug hover:text-green-300 transition-colors">
+                    <h2 className="text-white text-xl sm:text-2xl lg:text-3xl mb-3 leading-snug hover:text-green-300 transition-colors">
                       {featured[0].title}
-                    </h1>
+                    </h2>
                   </Link>
                   <p className="text-gray-300 text-sm line-clamp-2 mb-4 max-w-xl">
                     {featured[0].excerpt}
