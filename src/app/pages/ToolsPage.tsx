@@ -7,6 +7,7 @@ import {
 import { useUser } from "@clerk/clerk-react";
 import { useClerkActive, useClerkChecking } from "../../lib/clerkActive";
 import { useSubscription } from "../../lib/subscription";
+import { useUserPlan } from "../../lib/userPlan";
 
 // ─── Lazy imports ─────────────────────────────────────────────────────────────
 const SalarySimulator    = lazy(() => import("../components/tools/SalarySimulator"));
@@ -170,6 +171,7 @@ export default function ToolsPage() {
 
 // ─── Contenu (design inchangé) ────────────────────────────────────────────────
 function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boolean; subscriptionLoading: boolean }) {
+  const { tier } = useUserPlan();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Lire le paramètre URL ?outil=<id> pour le deep-linking vers un outil précis
@@ -186,6 +188,19 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
   useEffect(() => {
     setSearchParams({ outil: activeId }, { replace: true });
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Quand l'abonnement finit de charger et que l'outil actif est verrouillé,
+  // basculer automatiquement vers le premier outil gratuit pour éviter de rester
+  // bloqué sur le paywall (ex : URL ?outil=salary pour un utilisateur free)
+  useEffect(() => {
+    if (!subscriptionLoading && !isPremium) {
+      const active = ALL_TOOLS.find((t) => t.id === activeId);
+      if (active?.plan === "premium") {
+        setActiveId(FREE_TOOLS[0].id);
+        setLoadedIds(new Set([FREE_TOOLS[0].id]));
+      }
+    }
+  }, [subscriptionLoading, isPremium]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = ALL_TOOLS.find((t) => t.id === activeId) ?? FREE_TOOLS[0];
   const isActiveLocked = !isPremium && active.plan === "premium";
@@ -383,7 +398,9 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
                   <div className="mt-3 mx-2 rounded-xl p-3 text-center" style={{ background: "linear-gradient(135deg, #00A65108, #0D1B3508)" }}>
                     <div className="flex items-center justify-center gap-1.5 mb-1">
                       <Star size={13} className="text-[#00A651]" />
-                      <span className="text-xs font-semibold text-[#00A651]">Abonné Premium</span>
+                      <span className="text-xs font-semibold text-[#00A651]">
+                        {tier === "premium" ? "Abonné Premium" : "Abonné Standard"}
+                      </span>
                     </div>
                     <p className="text-xs text-gray-500">Accès complet à tous les outils</p>
                   </div>
@@ -403,7 +420,7 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
           </aside>
 
           {/* ── Contenu outil ───────────────────────────────────── */}
-          <main id="tool-content" className="flex-1 min-w-0" aria-label={`Outil actif : ${active.label}`}>
+          <main id="tool-content" className="flex-1 min-w-0 scroll-mt-navbar" aria-label={`Outil actif : ${active.label}`}>
             {/* Breadcrumb + badge plan */}
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-2 text-sm text-gray-400">
