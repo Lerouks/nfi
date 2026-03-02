@@ -93,13 +93,15 @@ const ALL_TOOLS = [...FREE_TOOLS, ...PREMIUM_TOOLS];
 
 // ─── Wrapper Clerk — lit le tier uniquement quand ClerkProvider est actif ─────
 function ToolsPageWithClerk() {
-  const { user, isSignedIn } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
   const userId = isSignedIn && user ? user.id : null;
   const subscription = useSubscription(userId);
-  const isPremium = !subscription.isLoading && (
+  const isPremium = isLoaded && !subscription.isLoading && (
     subscription.tier === "standard" || subscription.tier === "premium"
   );
-  return <ToolsPageContent isPremium={isPremium} subscriptionLoading={subscription.isLoading} />;
+  // Inclure le chargement Clerk dans subscriptionLoading pour éviter le flash "Paywall → Outil"
+  const subscriptionLoading = !isLoaded || subscription.isLoading;
+  return <ToolsPageContent isPremium={isPremium} subscriptionLoading={subscriptionLoading} />;
 }
 
 function ToolLoader() {

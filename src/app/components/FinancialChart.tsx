@@ -3,8 +3,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { CHART_DATA } from "../data/mockData";
+import { useMarketData } from "../../lib/siteData";
 
 export function BRVMChart() {
+  const items = useMarketData();
+  const brvm = items.find((i) => i.name.toLowerCase().includes("brvm"));
+
   return (
     <div className="bg-white rounded-xl border p-5 shadow-sm" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
       <div className="flex items-center justify-between mb-4">
@@ -13,8 +17,12 @@ export function BRVMChart() {
           <p className="text-[11px] text-gray-400">Évolution sur 7 mois</p>
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold text-gray-900">342.15</div>
-          <div className="text-xs text-green-600 font-semibold">+8.3% (6 mois)</div>
+          <div className="text-lg font-bold text-gray-900">
+            {brvm ? brvm.value.toLocaleString("fr-FR") : "342.15"}
+          </div>
+          <div className={`text-xs font-semibold ${brvm ? (brvm.change_abs >= 0 ? "text-green-600" : "text-red-600") : "text-green-600"}`}>
+            {brvm ? brvm.change_pct : "+8.3%"}
+          </div>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={160}>
@@ -41,11 +49,22 @@ export function BRVMChart() {
 }
 
 export function GDPChart() {
+  const items = useMarketData();
+  const pib = items.find((i) => i.name.toLowerCase().includes("pib") || i.name.toLowerCase().includes("gdp") || i.name.toLowerCase().includes("croissance"));
+
   return (
     <div className="bg-white rounded-xl border p-5 shadow-sm" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-      <div className="mb-4">
-        <h3 className="text-gray-900 font-semibold text-sm">Croissance PIB 2026 (prévisions)</h3>
-        <p className="text-[11px] text-gray-400">Pays de l'espace UEMOA + Guinée</p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-gray-900 font-semibold text-sm">{pib ? pib.name : "Croissance PIB 2026 (prévisions)"}</h3>
+          <p className="text-[11px] text-gray-400">Pays de l'espace UEMOA + Guinée</p>
+        </div>
+        {pib && (
+          <div className="text-right">
+            <div className="text-lg font-bold text-gray-900">{pib.value.toLocaleString("fr-FR")}{pib.unit ? ` ${pib.unit}` : ""}</div>
+            <div className={`text-xs font-semibold ${pib.change_abs >= 0 ? "text-green-600" : "text-red-600"}`}>{pib.change_pct}</div>
+          </div>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={CHART_DATA.gdpGrowth} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -64,11 +83,22 @@ export function GDPChart() {
 }
 
 export function InvestmentChart() {
+  const items = useMarketData();
+  const inv = items.find((i) => i.name.toLowerCase().includes("invest") || i.name.toLowerCase().includes("flux"));
+
   return (
     <div className="bg-white rounded-xl border p-5 shadow-sm" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
-      <div className="mb-4">
-        <h3 className="text-gray-900 font-semibold text-sm">Flux d'investissements en Afrique</h3>
-        <p className="text-[11px] text-gray-400">Par origine (milliards USD)</p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-gray-900 font-semibold text-sm">{inv ? inv.name : "Flux d'investissements en Afrique"}</h3>
+          <p className="text-[11px] text-gray-400">Par origine (milliards USD)</p>
+        </div>
+        {inv && (
+          <div className="text-right">
+            <div className="text-lg font-bold text-gray-900">{inv.value.toLocaleString("fr-FR")}{inv.unit ? ` ${inv.unit}` : ""}</div>
+            <div className={`text-xs font-semibold ${inv.change_abs >= 0 ? "text-green-600" : "text-red-600"}`}>{inv.change_pct}</div>
+          </div>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={CHART_DATA.investment} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
