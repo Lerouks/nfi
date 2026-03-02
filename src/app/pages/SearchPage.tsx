@@ -40,6 +40,15 @@ export default function SearchPage() {
     setInputValue(query);
   }, [query]);
 
+  useEffect(() => {
+    document.title = query
+      ? `Recherche "${query}" — NFI REPORT`
+      : "Recherche d'articles — Économie & Finance | NFI REPORT";
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+    };
+  }, [query]);
+
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
       {/* Search header */}

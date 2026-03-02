@@ -162,6 +162,19 @@ function ToolNavItem({
 
 // ─── Export principal ─────────────────────────────────────────────────────────
 export default function ToolsPage() {
+  useEffect(() => {
+    document.title = "Outils Financiers — Simulateur de prêt, calcul d'intérêts | NFI REPORT";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Accédez aux outils financiers de NFI REPORT : simulateur de prêt, calcul d'intérêts composés, indices économiques et bien plus pour vos décisions d'investissement au Niger.");
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", "https://www.nfireport.com/outils");
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+      const can = document.querySelector('link[rel="canonical"]');
+      if (can) can.setAttribute("href", "https://www.nfireport.com/");
+    };
+  }, []);
+
   const clerkActive = useClerkActive();
   // clerkChecking = true pendant la sonde réseau (~2 s) → affiche skeleton au lieu du paywall
   const clerkChecking = useClerkChecking();

@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router";
+import { useEffect } from "react";
 import { ArrowLeft, Shield, FileText, Lock, Cookie } from "lucide-react";
 
 const LEGAL_CONTENT: Record<string, {
@@ -131,6 +132,20 @@ const LEGAL_CONTENT: Record<string, {
 export default function LegalPage() {
   const { slug } = useParams<{ slug: string }>();
   const content = slug ? LEGAL_CONTENT[slug] : null;
+
+  useEffect(() => {
+    if (!content || !slug) return;
+    document.title = `${content.title} — NFI REPORT`;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", `${content.title} de NFI REPORT — Niger Financial Insights. Informations légales et réglementaires.`);
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", `https://www.nfireport.com/legal/${slug}`);
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+      const can = document.querySelector('link[rel="canonical"]');
+      if (can) can.setAttribute("href", "https://www.nfireport.com/");
+    };
+  }, [slug, content?.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!content) {
     return (

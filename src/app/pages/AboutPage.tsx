@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Twitter, Linkedin, Mail, Target, Eye, Shield, Globe } from "lucide-react";
 import { NewsletterSignup } from "../components/NewsletterSignup";
@@ -128,6 +128,19 @@ function ContactForm() {
 }
 
 export default function AboutPage() {
+  useEffect(() => {
+    document.title = "À propos de NFI REPORT — Notre mission & équipe | Niger Financial Insights";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Découvrez NFI REPORT, la référence en information économique et financière au Niger. Notre mission, notre équipe et nos engagements envers une presse indépendante.");
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", "https://www.nfireport.com/about");
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+      const can = document.querySelector('link[rel="canonical"]');
+      if (can) can.setAttribute("href", "https://www.nfireport.com/");
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
       {/* Hero */}

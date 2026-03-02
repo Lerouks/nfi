@@ -65,6 +65,24 @@ export default function SectionPage() {
   const category = staticCat
     ?? (dynamicSect ? { name: dynamicSect.label, slug: slug ?? "", count: 0, icon: "" } : null);
 
+  useEffect(() => {
+    if (!slug) return;
+    const name = staticCat?.name ?? (dynamicSect ? dynamicSect.label : slug);
+    document.title = `${name} — Actualités & Analyses | NFI REPORT`;
+    document.querySelector('meta[name="description"]')?.setAttribute(
+      "content",
+      `Suivez toute l'actualité ${name} : économie, finance et marchés avec NFI REPORT, la référence financière au Niger et en Afrique.`
+    );
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", `https://www.nfireport.com/section/${slug}`);
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+      const can = document.querySelector('link[rel="canonical"]');
+      if (can) can.setAttribute("href", "https://www.nfireport.com/");
+    };
+  }, [slug, navSections]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filter
   let filtered = allArticles.filter((a) => {
     if (filter === "free") return !a.isPremium;

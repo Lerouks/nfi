@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   Star, CheckCircle2, CreditCard, Lock, Shield,
@@ -58,6 +58,19 @@ function SubscribePageContent({
   currentTier: SubscriptionTier;
   tierLoading: boolean;
 }) {
+
+  useEffect(() => {
+    document.title = "Abonnement NFI REPORT — Accédez aux analyses financières premium | Niger";
+    document.querySelector('meta[name="description"]')?.setAttribute("content", "Abonnez-vous à NFI REPORT et accédez à toutes les analyses financières, rapports exclusifs et données de marché sur l'économie du Niger et de l'Afrique.");
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", "https://www.nfireport.com/subscribe");
+    return () => {
+      document.title = "NFI REPORT - La référence financière et économique au Niger";
+      document.querySelector('meta[name="description"]')?.setAttribute("content", "NFI REPORT — Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger, BCEAO, UEMOA et économie mondiale.");
+      const can = document.querySelector('link[rel="canonical"]');
+      if (can) can.setAttribute("href", "https://www.nfireport.com/");
+    };
+  }, []);
 
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "quarterly" | "yearly">("monthly");
