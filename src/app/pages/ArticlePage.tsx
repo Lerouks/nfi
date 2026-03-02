@@ -129,23 +129,51 @@ function ArticlePageContent({
     if (!sanityArticle) return;
     const a = toArticle(sanityArticle);
     const url = `${window.location.origin}/article/${a.slug}`;
+    const setMeta = (sel: string, val: string) =>
+      document.querySelector(sel)?.setAttribute("content", val);
+
     document.title = `${a.title} — NFI REPORT`;
-    document.querySelector('meta[property="og:title"]')?.setAttribute("content", a.title);
-    document.querySelector('meta[property="og:description"]')?.setAttribute("content", a.excerpt);
-    document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
-    document.querySelector('meta[property="og:type"]')?.setAttribute("content", "article");
+
+    // Open Graph
+    setMeta('meta[property="og:title"]', a.title);
+    setMeta('meta[property="og:description"]', a.excerpt);
+    setMeta('meta[property="og:url"]', url);
+    setMeta('meta[property="og:type"]', "article");
     if (a.cover) {
-      document.querySelector('meta[property="og:image"]')?.setAttribute("content", a.cover);
-      document.querySelector('meta[property="og:image:secure_url"]')?.setAttribute("content", a.cover);
+      setMeta('meta[property="og:image"]', a.cover);
+      setMeta('meta[property="og:image:secure_url"]', a.cover);
+      setMeta('meta[property="og:image:alt"]', a.title);
     }
+
+    // Twitter Card (Twitter lit ses propres tags, pas seulement og:*)
+    setMeta('meta[name="twitter:title"]', a.title);
+    setMeta('meta[name="twitter:description"]', a.excerpt);
+    if (a.cover) setMeta('meta[name="twitter:image"]', a.cover);
+    setMeta('meta[name="twitter:image:alt"]', a.title);
+
+    // URL canonique dynamique
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = url;
+
     return () => {
       document.title = "NFI REPORT - La référence financière et économique au Niger";
-      document.querySelector('meta[property="og:title"]')?.setAttribute("content", "NFI REPORT - La référence financière au Niger");
-      document.querySelector('meta[property="og:description"]')?.setAttribute("content", "Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger.");
-      document.querySelector('meta[property="og:url"]')?.setAttribute("content", "https://www.nfireport.com/");
-      document.querySelector('meta[property="og:type"]')?.setAttribute("content", "website");
-      document.querySelector('meta[property="og:image"]')?.setAttribute("content", "https://www.nfireport.com/logo.png");
-      document.querySelector('meta[property="og:image:secure_url"]')?.setAttribute("content", "https://www.nfireport.com/logo.png");
+      setMeta('meta[property="og:title"]', "NFI REPORT - La référence financière au Niger");
+      setMeta('meta[property="og:description"]', "Actualités économiques et financières en Afrique. Analyses indépendantes, données de marché, focus Niger.");
+      setMeta('meta[property="og:url"]', "https://www.nfireport.com/");
+      setMeta('meta[property="og:type"]', "website");
+      setMeta('meta[property="og:image"]', "https://www.nfireport.com/logo.png");
+      setMeta('meta[property="og:image:secure_url"]', "https://www.nfireport.com/logo.png");
+      setMeta('meta[property="og:image:alt"]', "NFI REPORT — Niger Financial Insights");
+      setMeta('meta[name="twitter:title"]', "NFI REPORT - La référence financière au Niger");
+      setMeta('meta[name="twitter:description"]', "Actualités économiques et financières en Afrique.");
+      setMeta('meta[name="twitter:image"]', "https://www.nfireport.com/logo.png");
+      setMeta('meta[name="twitter:image:alt"]', "NFI REPORT — Niger Financial Insights");
+      if (canonical) canonical.href = "https://www.nfireport.com/";
     };
   }, [sanityArticle]);
 
