@@ -169,8 +169,128 @@ export default function ToolsPage() {
   return <ToolsPageContent isPremium={false} subscriptionLoading={clerkChecking} />;
 }
 
+// ─── Skeleton page complète ───────────────────────────────────────────────────
+function ToolsPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero skeleton */}
+      <div
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #0D1B35 0%, #1a2f5c 60%, #00A651 100%)" }}
+      >
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+          <div className="h-10 bg-white/20 rounded-xl w-56 mb-4 animate-pulse" />
+          <div className="h-4 bg-white/15 rounded w-80 mb-2 animate-pulse" />
+          <div className="h-4 bg-white/10 rounded w-64 mb-8 animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+            {[0, 1].map((i) => (
+              <div key={i} className="bg-white/10 border border-white/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-lg bg-white/20 animate-pulse" />
+                  <div className="h-3 bg-white/20 rounded w-24 animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  {[0, 1].map((j) => (
+                    <div key={j} className="h-9 bg-white/10 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Corps skeleton */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex flex-col lg:flex-row gap-6">
+
+          {/* Sidebar skeleton */}
+          <aside className="hidden lg:block lg:w-64 shrink-0">
+            <div className="bg-white rounded-2xl border p-3 space-y-2" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+              <div className="h-3 bg-gray-100 rounded w-20 mx-2 mb-3 animate-pulse" />
+              {[0, 1].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg shrink-0 animate-pulse" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-gray-100 rounded w-3/4 animate-pulse" />
+                    <div className="h-2.5 bg-gray-100 rounded w-1/2 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+              <div className="border-t mx-2 my-1" style={{ borderColor: "rgba(0,0,0,0.06)" }} />
+              <div className="h-3 bg-gray-100 rounded w-24 mx-2 mb-3 animate-pulse" />
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg shrink-0 animate-pulse" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 bg-gray-100 rounded w-3/4 animate-pulse" />
+                    <div className="h-2.5 bg-gray-100 rounded w-1/2 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          {/* Contenu outil skeleton */}
+          <main className="flex-1 min-w-0">
+            {/* Breadcrumb skeleton */}
+            <div className="flex items-center gap-2 mb-5">
+              <div className="h-3 bg-gray-200 rounded w-12 animate-pulse" />
+              <div className="h-3 bg-gray-200 rounded w-3 animate-pulse" />
+              <div className="h-5 bg-gray-100 rounded-full w-16 animate-pulse" />
+              <div className="h-3 bg-gray-200 rounded w-3 animate-pulse" />
+              <div className="h-3 bg-gray-200 rounded w-32 animate-pulse" />
+            </div>
+
+            {/* Card outil skeleton */}
+            <div className="bg-white rounded-2xl border p-6 sm:p-8" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+              {/* Titre + spinner centré */}
+              <div className="flex flex-col items-center justify-center py-10 gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-[#00A651]/10 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-[#00A651] border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div className="text-center">
+                  <div className="h-5 bg-gray-100 rounded w-40 mx-auto mb-2 animate-pulse" />
+                  <div className="h-3 bg-gray-100 rounded w-56 mx-auto animate-pulse" />
+                </div>
+              </div>
+              {/* Champs de formulaire skeleton */}
+              <div className="space-y-4 mt-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i}>
+                    <div className="h-3 bg-gray-100 rounded w-32 mb-2 animate-pulse" />
+                    <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
+                  </div>
+                ))}
+                <div className="h-11 bg-[#00A651]/10 rounded-xl animate-pulse mt-2" />
+              </div>
+            </div>
+
+            {/* Autres outils skeleton */}
+            <div className="mt-6">
+              <div className="h-3 bg-gray-200 rounded w-36 mb-3 animate-pulse" />
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3 bg-white rounded-xl border p-4" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+                    <div className="w-9 h-9 bg-gray-100 rounded-xl shrink-0 animate-pulse" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 bg-gray-100 rounded w-3/4 animate-pulse" />
+                      <div className="h-2.5 bg-gray-100 rounded w-full animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Contenu (design inchangé) ────────────────────────────────────────────────
 function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boolean; subscriptionLoading: boolean }) {
+  if (subscriptionLoading) return <ToolsPageSkeleton />;
   const { tier } = useUserPlan();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -452,14 +572,7 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
             </div>
 
             {/* Outil actif */}
-            {subscriptionLoading && active.plan === "premium" ? (
-              /* Chargement abonnement */
-              <div className="bg-white rounded-2xl border p-12 text-center animate-pulse" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
-                <div className="w-14 h-14 bg-gray-100 rounded-2xl mx-auto mb-4" />
-                <div className="h-6 bg-gray-100 rounded w-48 mx-auto mb-3" />
-                <div className="h-4 bg-gray-100 rounded w-64 mx-auto" />
-              </div>
-            ) : isActiveLocked ? (
+            {isActiveLocked ? (
               /* Paywall inline */
               <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
                 <div className="w-14 h-14 rounded-2xl bg-[#00A651]/10 flex items-center justify-center mx-auto mb-4">
