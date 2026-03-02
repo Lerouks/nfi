@@ -6,7 +6,7 @@ import {
 import {
   CATEGORIES, TRENDING_TAGS, formatDate, type Article,
 } from "../data/mockData";
-import { getArticlesByCategory, getAllArticles, toArticle } from "../../lib/sanity";
+import { getArticlesByCategory, getAllArticles, toArticle, getTrendingTags } from "../../lib/sanity";
 import { useNavSections } from "../../lib/siteData";
 import { ArticleCard } from "../components/ArticleCard";
 import { MarketOverview } from "../components/MarketTicker";
@@ -27,9 +27,14 @@ export default function SectionPage() {
   const [page, setPage] = useState(1);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articlesLoaded, setArticlesLoaded] = useState(false);
+  const [trendingTags, setTrendingTags] = useState<string[]>(TRENDING_TAGS);
 
   const navSections = useNavSections();
   const didMount = useRef(false);
+
+  useEffect(() => {
+    getTrendingTags().then((tags) => { if (tags.length > 0) setTrendingTags(tags); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (slug) {
@@ -267,7 +272,7 @@ export default function SectionPage() {
             <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
               <h3 className="text-gray-900 font-semibold text-sm mb-3">Tags</h3>
               <div className="flex flex-wrap gap-2">
-                {TRENDING_TAGS.slice(0, 12).map((tag) => (
+                {trendingTags.slice(0, 12).map((tag) => (
                   <Link key={tag} to={`/search?q=${encodeURIComponent(tag)}`}
                     className="px-2.5 py-1 text-xs text-gray-600 bg-gray-100 rounded-full hover:bg-[#00A651] hover:text-white transition-colors">
                     #{tag}

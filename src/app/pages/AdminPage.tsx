@@ -393,12 +393,15 @@ function MarchesTab() {
       value: String(item.value),
       change_abs: String(item.change_abs),
       display_order: String(item.display_order),
+      name: item.name,
+      change_pct: item.change_pct,
+      unit: item.unit ?? "",
     });
   };
 
   const handleSave = async (id: number) => {
     setSaving(id);
-    const ok = await adminUpdateMarketItem({ id, ...editValues });
+    const ok = await adminUpdateMarketItem({ id, ...editValues, updated_at: new Date().toISOString() });
     if (ok) {
       setItems((prev) => prev.map((i) => i.id === id ? { ...i, ...editValues } as MarketItem : i));
       setEditingId(null);
@@ -513,8 +516,11 @@ function MarchesTab() {
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Nom</label>
                       <input
-                        value={editValues.name ?? item.name}
-                        onChange={(e) => setEditValues((v) => ({ ...v, name: e.target.value }))}
+                        value={editRaw.name ?? item.name}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, name: e.target.value }));
+                          setEditValues((v) => ({ ...v, name: e.target.value }));
+                        }}
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                       />
@@ -552,8 +558,11 @@ function MarchesTab() {
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Variation % (ex: +1.23%)</label>
                       <input
-                        value={editValues.change_pct ?? item.change_pct}
-                        onChange={(e) => setEditValues((v) => ({ ...v, change_pct: e.target.value }))}
+                        value={editRaw.change_pct ?? item.change_pct}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, change_pct: e.target.value }));
+                          setEditValues((v) => ({ ...v, change_pct: e.target.value }));
+                        }}
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
                       />
@@ -561,8 +570,11 @@ function MarchesTab() {
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Unité (ex: $/oz)</label>
                       <input
-                        value={editValues.unit ?? item.unit ?? ""}
-                        onChange={(e) => setEditValues((v) => ({ ...v, unit: e.target.value || null }))}
+                        value={editRaw.unit ?? item.unit ?? ""}
+                        onChange={(e) => {
+                          setEditRaw((r) => ({ ...r, unit: e.target.value }));
+                          setEditValues((v) => ({ ...v, unit: e.target.value || null }));
+                        }}
                         placeholder="Optionnel"
                         className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00A651]"
                         style={{ borderColor: "rgba(0,0,0,0.15)" }}
@@ -1038,6 +1050,7 @@ function PaymentsTab() {
 
 function SubscribersTab() {
   const [search, setSearch] = useState("");
+  const [tierFilter, setTierFilter] = useState<"all" | "premium" | "standard" | "free" | "expiring">("all");
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
@@ -1045,6 +1058,18 @@ function SubscribersTab() {
   // Durée sélectionnée par utilisateur (userId → months)
   const [selectedMonths, setSelectedMonths] = useState<Record<string, number>>({});
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  function daysUntilExpiry(expires: string | null): number | null {
+    if (!expires) return null;
+    return Math.ceil((new Date(expires).getTime() - Date.now()) / 86400000);
+  }
+
+  function expiryColor(days: number | null): string {
+    if (days === null) return "";
+    if (days <= 7)  return "text-red-600 font-semibold";
+    if (days <= 30) return "text-amber-600 font-semibold";
+    return "text-gray-400";
+  }
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -1055,12 +1080,23 @@ function SubscribersTab() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const displayed = search.trim()
-    ? allProfiles.filter((p) =>
-        (p.email ?? "").toLowerCase().includes(search.trim().toLowerCase()) ||
-        (p.full_name ?? "").toLowerCase().includes(search.trim().toLowerCase())
-      )
-    : allProfiles;
+  const NOW_MS = Date.now();
+
+  const displayed = allProfiles.filter((p) => {
+    // text search
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      if (!(p.email ?? "").toLowerCase().includes(q) && !(p.full_name ?? "").toLowerCase().includes(q)) return false;
+    }
+    // tier filter
+    if (tierFilter === "expiring") {
+      if (p.subscription_tier === "free" || !p.subscription_expires_at) return false;
+      const days = Math.ceil((new Date(p.subscription_expires_at).getTime() - NOW_MS) / 86400000);
+      return days >= 0 && days <= 30;
+    }
+    if (tierFilter !== "all") return p.subscription_tier === tierFilter;
+    return true;
+  });
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -1101,9 +1137,14 @@ function SubscribersTab() {
   ];
 
   const tierOrder: Record<string, number> = { premium: 0, standard: 1, free: 2 };
-  const sorted = [...displayed].sort((a, b) =>
-    (tierOrder[a.subscription_tier] ?? 3) - (tierOrder[b.subscription_tier] ?? 3)
-  );
+  const sorted = [...displayed].sort((a, b) => {
+    const tierDiff = (tierOrder[a.subscription_tier] ?? 3) - (tierOrder[b.subscription_tier] ?? 3);
+    if (tierDiff !== 0) return tierDiff;
+    // Same tier: sort by expiry (sooner first)
+    const aExp = a.subscription_expires_at ? new Date(a.subscription_expires_at).getTime() : Infinity;
+    const bExp = b.subscription_expires_at ? new Date(b.subscription_expires_at).getTime() : Infinity;
+    return aExp - bExp;
+  });
 
   return (
     <div>
@@ -1113,6 +1154,40 @@ function SubscribersTab() {
           {toast.msg}
         </div>
       )}
+
+      {/* Tier filter buttons */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {([
+          { key: "all",      label: "Tous" },
+          { key: "premium",  label: "Premium" },
+          { key: "standard", label: "Standard" },
+          { key: "free",     label: "Free" },
+          { key: "expiring", label: "⚠ Expire bientôt" },
+        ] as const).map(({ key, label }) => {
+          const count = key === "all" ? allProfiles.length
+            : key === "expiring"
+              ? allProfiles.filter((p) => {
+                  if (p.subscription_tier === "free" || !p.subscription_expires_at) return false;
+                  const d = Math.ceil((new Date(p.subscription_expires_at).getTime() - NOW_MS) / 86400000);
+                  return d >= 0 && d <= 30;
+                }).length
+              : allProfiles.filter((p) => p.subscription_tier === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setTierFilter(key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition border ${
+                tierFilter === key
+                  ? key === "expiring" ? "bg-amber-500 text-white border-amber-500"
+                    : "bg-[#0D1B35] text-white border-[#0D1B35]"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
+      </div>
 
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
@@ -1170,11 +1245,20 @@ function SubscribersTab() {
                       )}
                     </div>
                     <p className="text-xs text-gray-400 truncate">{profile.email}</p>
-                    {profile.subscription_expires_at && (
-                      <p className="text-xs text-gray-400">
-                        Expire le {new Date(profile.subscription_expires_at).toLocaleDateString("fr-FR")}
-                      </p>
-                    )}
+                    {profile.subscription_expires_at && (() => {
+                      const days = daysUntilExpiry(profile.subscription_expires_at);
+                      return (
+                        <p className={`text-xs ${expiryColor(days)}`}>
+                          Expire le {new Date(profile.subscription_expires_at).toLocaleDateString("fr-FR")}
+                          {days !== null && days <= 30 && days >= 0 && (
+                            <span className="ml-1">({days === 0 ? "aujourd'hui" : `dans ${days}j`})</span>
+                          )}
+                          {days !== null && days < 0 && (
+                            <span className="ml-1 text-red-600">(expiré)</span>
+                          )}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <button
                     onClick={() => {

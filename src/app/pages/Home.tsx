@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
 import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
-import { getAllArticles, getFeaturedArticles, toArticle } from "../../lib/sanity";
+import { getAllArticles, getFeaturedArticles, toArticle, getTrendingTags } from "../../lib/sanity";
 import { getAllArticleViews } from "../../lib/supabase";
 import { ArticleCard } from "../components/ArticleCard";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -59,8 +59,11 @@ export default function Home() {
   const [popular, setPopular]         = useState<Article[]>([]);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(true);
+  const [trendingTags, setTrendingTags] = useState<string[]>(TRENDING_TAGS);
 
   useEffect(() => {
+    getTrendingTags().then((tags) => { if (tags.length > 0) setTrendingTags(tags); }).catch(() => {});
+
     getFeaturedArticles()
       .then((data) => setFeatured(data.map(toArticle)))
       .catch((err) => console.error('[Sanity] getFeaturedArticles error:', err));
@@ -317,7 +320,7 @@ export default function Home() {
                   <TrendingUp size={14} style={{ color: "#C9A84C" }} /> Tags tendance
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {TRENDING_TAGS.map((tag) => (
+                  {trendingTags.map((tag) => (
                     <Link
                       key={tag}
                       to={`/search?q=${encodeURIComponent(tag)}`}

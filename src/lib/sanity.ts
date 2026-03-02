@@ -77,6 +77,30 @@ export async function searchArticles(query: string): Promise<SanityArticle[]> {
   );
 }
 
+/**
+ * Retourne les tags les plus fréquents de tous les articles Sanity publiés.
+ * Fallback vers [] si Sanity n'est pas joignable.
+ */
+export async function getTrendingTags(limit = 15): Promise<string[]> {
+  try {
+    const articles = await sanityClient.fetch<{ tags: string[] | null }[]>(
+      `*[_type == "article" && defined(tags)] { tags }`
+    );
+    const freq: Record<string, number> = {};
+    for (const a of articles) {
+      for (const tag of a.tags ?? []) {
+        if (tag && typeof tag === "string") freq[tag] = (freq[tag] ?? 0) + 1;
+      }
+    }
+    return Object.entries(freq)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .map(([tag]) => tag);
+  } catch {
+    return [];
+  }
+}
+
 /** Compte le nombre d'articles publiés par un auteur (nom exact) */
 export async function getArticleCountByAuthor(authorName: string): Promise<number> {
   const count = await sanityClient.fetch(

@@ -157,9 +157,6 @@ function ProfileContent({
 
   const switchTab = (tab: Tab) => {
     setActiveTab(tab);
-    setTimeout(() => {
-      document.getElementById("profile-tab-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 30);
   };
 
   const tabs = [
