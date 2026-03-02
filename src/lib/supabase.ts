@@ -40,7 +40,7 @@ function getSupabaseClient(): SupabaseClient {
 export const supabase = getSupabaseClient();
 
 // ─── Helper : ignore toutes les requêtes si Supabase n'est pas configuré ─────
-async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
+async function safeQuery<T>(fn: () => PromiseLike<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
   if (!SUPABASE_READY) {
     console.warn("[Supabase] Non configuré — requête ignorée", label ?? "");
     return null;

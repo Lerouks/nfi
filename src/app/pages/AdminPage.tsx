@@ -806,7 +806,7 @@ function GraphiquesTab() {
   };
 
   const addBrvmPoint = () =>
-    setData((d) => ({ ...d, brvm: [...d.brvm, { month: "Mois", value: d.brvm.at(-1)?.value ?? 300 }] }));
+    setData((d) => ({ ...d, brvm: [...d.brvm, { month: "Mois", value: d.brvm[d.brvm.length - 1]?.value ?? 300 }] }));
 
   const removeBrvmPoint = (idx: number) =>
     setData((d) => ({ ...d, brvm: d.brvm.filter((_, i) => i !== idx) }));
@@ -845,7 +845,7 @@ function GraphiquesTab() {
 
   const addInvRow = () =>
     setData((d) => {
-      const last = d.investment.at(-1);
+      const last = d.investment[d.investment.length - 1];
       return { ...d, investment: [...d.investment, { year: String(parseInt(last?.year ?? "2025") + 1), china: 0, europe: 0, usa: 0, other: 0 }] };
     });
 
@@ -950,7 +950,7 @@ function GraphiquesTab() {
           </table>
         </div>
         <p className="text-[10px] text-gray-400 mt-3">
-          {data.brvm.length} point{data.brvm.length > 1 ? "s" : ""} — dernier : {data.brvm.at(-1)?.value?.toLocaleString("fr-FR")}
+          {data.brvm.length} point{data.brvm.length > 1 ? "s" : ""} — dernier : {data.brvm[data.brvm.length - 1]?.value?.toLocaleString("fr-FR")}
         </p>
       </div>
 
@@ -1070,7 +1070,7 @@ function GraphiquesTab() {
           </table>
         </div>
         <p className="text-[10px] text-gray-400 mt-3">
-          Total Chine {data.investment.at(-1)?.year} : {data.investment.at(-1)?.china?.toLocaleString("fr-FR")} Mrd USD
+          Total Chine {data.investment[data.investment.length - 1]?.year} : {data.investment[data.investment.length - 1]?.china?.toLocaleString("fr-FR")} Mrd USD
         </p>
       </div>
 
