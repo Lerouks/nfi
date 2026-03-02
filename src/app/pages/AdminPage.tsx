@@ -16,6 +16,8 @@ import {
   adminDeleteMarketItem,
   adminGetSections,
   adminUpdateSections,
+  adminGetChartData,
+  adminUpdateChartData,
   setAdminUser,
   type PaymentRequest,
   type Profile,
@@ -23,8 +25,9 @@ import {
   type ContactMessage,
   type MarketItem,
   type NavSection,
+  type ChartData,
 } from "../../lib/supabase";
-import { broadcastMarketUpdate, broadcastSectionsUpdate } from "../../lib/siteData";
+import { broadcastMarketUpdate, broadcastSectionsUpdate, broadcastChartUpdate } from "../../lib/siteData";
 import {
   CheckCircle2, XCircle, Search, RefreshCw, ChevronDown, Shield, Loader,
   Users, DollarSign, CreditCard, MessageSquare, Mail, ArrowUp, ArrowDown,
@@ -54,13 +57,14 @@ function AdminWithClerk() {
   return <AdminContent userId={user?.id} />;
 }
 
-type TabId = "dashboard" | "payments" | "subscribers" | "marches" | "sections";
+type TabId = "dashboard" | "payments" | "subscribers" | "marches" | "graphiques" | "sections";
 
 const TAB_LABELS: Record<TabId, string> = {
   dashboard:   "Tableau de bord",
   payments:    "Paiements",
   subscribers: "Abonnés",
   marches:     "Marchés",
+  graphiques:  "Graphiques",
   sections:    "Sections",
 };
 
@@ -134,6 +138,7 @@ function AdminContent({ userId }: { userId: string | undefined }) {
         {tab === "payments"    && <PaymentsTab />}
         {tab === "subscribers" && <SubscribersTab />}
         {tab === "marches"     && <MarchesTab />}
+        {tab === "graphiques"  && <GraphiquesTab />}
         {tab === "sections"    && <SectionsTab />}
       </div>
     </div>
@@ -721,6 +726,365 @@ function MarchesTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Onglet Graphiques (Marchés & Analyses) ───────────────────────────────────
+
+const DEFAULT_CHART: ChartData = {
+  brvm: [
+    { month: "Août", value: 315 }, { month: "Sep", value: 322 },
+    { month: "Oct",  value: 318 }, { month: "Nov", value: 329 },
+    { month: "Déc",  value: 335 }, { month: "Jan", value: 338 },
+    { month: "Fév",  value: 342 },
+  ],
+  gdpGrowth: [
+    { country: "Niger",         value: 6.0 },
+    { country: "Sénégal",       value: 8.3 },
+    { country: "Côte d'Ivoire", value: 6.9 },
+    { country: "Mali",          value: 3.2 },
+    { country: "Burkina",       value: 2.1 },
+    { country: "Guinée",        value: 4.8 },
+  ],
+  investment: [
+    { year: "2020", china: 8.2,  europe: 12.4, usa: 6.1,  other: 4.3 },
+    { year: "2021", china: 9.1,  europe: 11.8, usa: 7.2,  other: 5.1 },
+    { year: "2022", china: 10.5, europe: 10.9, usa: 8.3,  other: 6.2 },
+    { year: "2023", china: 12.3, europe: 9.8,  usa: 9.1,  other: 7.8 },
+    { year: "2024", china: 14.1, europe: 11.2, usa: 10.5, other: 8.9 },
+    { year: "2025", china: 16.8, europe: 12.5, usa: 11.2, other: 9.4 },
+  ],
+};
+
+function GraphiquesTab() {
+  const [data, setData]     = useState<ChartData>(DEFAULT_CHART);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const remote = await adminGetChartData();
+    if (remote) setData(remote);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await adminUpdateChartData(data);
+    if (ok) {
+      broadcastChartUpdate();
+      showToast("✓ Graphiques mis à jour et diffusés en temps réel", true);
+    } else {
+      showToast("Échec de la sauvegarde", false);
+    }
+    setSaving(false);
+  };
+
+  // ── Helpers de mise à jour locaux ──────────────────────────────────────────
+
+  const updateBrvm = (idx: number, field: "month" | "value", raw: string) => {
+    setData((d) => {
+      const brvm = d.brvm.map((p, i) => {
+        if (i !== idx) return p;
+        if (field === "value") {
+          const n = parseFloat(raw);
+          return { ...p, value: isNaN(n) ? p.value : n };
+        }
+        return { ...p, month: raw };
+      });
+      return { ...d, brvm };
+    });
+  };
+
+  const addBrvmPoint = () =>
+    setData((d) => ({ ...d, brvm: [...d.brvm, { month: "Mois", value: d.brvm.at(-1)?.value ?? 300 }] }));
+
+  const removeBrvmPoint = (idx: number) =>
+    setData((d) => ({ ...d, brvm: d.brvm.filter((_, i) => i !== idx) }));
+
+  const updateGdp = (idx: number, field: "country" | "value", raw: string) => {
+    setData((d) => {
+      const gdpGrowth = d.gdpGrowth.map((p, i) => {
+        if (i !== idx) return p;
+        if (field === "value") {
+          const n = parseFloat(raw);
+          return { ...p, value: isNaN(n) ? p.value : n };
+        }
+        return { ...p, country: raw };
+      });
+      return { ...d, gdpGrowth };
+    });
+  };
+
+  const addGdpRow = () =>
+    setData((d) => ({ ...d, gdpGrowth: [...d.gdpGrowth, { country: "Pays", value: 0 }] }));
+
+  const removeGdpRow = (idx: number) =>
+    setData((d) => ({ ...d, gdpGrowth: d.gdpGrowth.filter((_, i) => i !== idx) }));
+
+  const updateInv = (idx: number, field: keyof ChartData["investment"][0], raw: string) => {
+    setData((d) => {
+      const investment = d.investment.map((p, i) => {
+        if (i !== idx) return p;
+        if (field === "year") return { ...p, year: raw };
+        const n = parseFloat(raw);
+        return { ...p, [field]: isNaN(n) ? p[field] : n };
+      });
+      return { ...d, investment };
+    });
+  };
+
+  const addInvRow = () =>
+    setData((d) => {
+      const last = d.investment.at(-1);
+      return { ...d, investment: [...d.investment, { year: String(parseInt(last?.year ?? "2025") + 1), china: 0, europe: 0, usa: 0, other: 0 }] };
+    });
+
+  const removeInvRow = (idx: number) =>
+    setData((d) => ({ ...d, investment: d.investment.filter((_, i) => i !== idx) }));
+
+  // ── Styles communs ─────────────────────────────────────────────────────────
+  const inputCls = "w-full text-sm border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#00A651] tabular-nums";
+  const borderStyle = { borderColor: "rgba(0,0,0,0.15)" };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-[#00A651] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {toast && (
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${toast.ok ? "bg-[#00A651]" : "bg-red-500"}`}>
+          {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400">Modifiez les données des 3 graphiques affichés dans "Marchés &amp; Analyses" sur la page d'accueil.</p>
+        <div className="flex gap-2">
+          <button onClick={load} className="px-3 py-1.5 rounded-lg text-xs text-gray-500 border border-gray-200 hover:border-gray-300 flex items-center gap-1.5 bg-white">
+            <RefreshCw size={12} /> Recharger
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#00A651] hover:bg-[#008c44] flex items-center gap-1.5 transition disabled:opacity-50"
+          >
+            {saving ? <Loader size={12} className="animate-spin" /> : <Save size={12} />}
+            Enregistrer et diffuser
+          </button>
+        </div>
+      </div>
+
+      {/* ── Section 1 : BRVM Composite ─────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={15} className="text-[#00A651]" />
+            <h3 className="text-sm font-semibold text-gray-900">BRVM Composite — Évolution mensuelle</h3>
+          </div>
+          <button
+            onClick={addBrvmPoint}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-white bg-[#0D1B35] hover:bg-[#1a2d5a] transition"
+          >
+            <Plus size={11} /> Ajouter mois
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th className="text-gray-400 font-medium pb-2 pr-3 w-28">Mois</th>
+                <th className="text-gray-400 font-medium pb-2 pr-3">Valeur indice</th>
+                <th className="pb-2 w-8" />
+              </tr>
+            </thead>
+            <tbody className="space-y-1">
+              {data.brvm.map((pt, idx) => (
+                <tr key={idx}>
+                  <td className="pr-3 py-1">
+                    <input
+                      value={pt.month}
+                      onChange={(e) => updateBrvm(idx, "month", e.target.value)}
+                      className={inputCls}
+                      style={borderStyle}
+                    />
+                  </td>
+                  <td className="pr-3 py-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={pt.value}
+                      onChange={(e) => updateBrvm(idx, "value", e.target.value)}
+                      className={inputCls}
+                      style={borderStyle}
+                    />
+                  </td>
+                  <td className="py-1">
+                    <button
+                      onClick={() => removeBrvmPoint(idx)}
+                      disabled={data.brvm.length <= 2}
+                      className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 disabled:opacity-30 transition"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-3">
+          {data.brvm.length} point{data.brvm.length > 1 ? "s" : ""} — dernier : {data.brvm.at(-1)?.value?.toLocaleString("fr-FR")}
+        </p>
+      </div>
+
+      {/* ── Section 2 : Croissance PIB ─────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Star size={15} className="text-[#D97706]" />
+            <h3 className="text-sm font-semibold text-gray-900">Croissance PIB — Pays UEMOA + Guinée</h3>
+          </div>
+          <button
+            onClick={addGdpRow}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-white bg-[#0D1B35] hover:bg-[#1a2d5a] transition"
+          >
+            <Plus size={11} /> Ajouter pays
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th className="text-gray-400 font-medium pb-2 pr-3">Pays</th>
+                <th className="text-gray-400 font-medium pb-2 pr-3">Croissance (%)</th>
+                <th className="pb-2 w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.gdpGrowth.map((row, idx) => (
+                <tr key={idx}>
+                  <td className="pr-3 py-1">
+                    <input
+                      value={row.country}
+                      onChange={(e) => updateGdp(idx, "country", e.target.value)}
+                      className={inputCls}
+                      style={borderStyle}
+                    />
+                  </td>
+                  <td className="pr-3 py-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={row.value}
+                      onChange={(e) => updateGdp(idx, "value", e.target.value)}
+                      className={inputCls}
+                      style={borderStyle}
+                    />
+                  </td>
+                  <td className="py-1">
+                    <button
+                      onClick={() => removeGdpRow(idx)}
+                      disabled={data.gdpGrowth.length <= 2}
+                      className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 disabled:opacity-30 transition"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Section 3 : Flux d'investissements ─────────────────────────────── */}
+      <div className="bg-white rounded-2xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Globe size={15} className="text-[#0D1B35]" />
+            <h3 className="text-sm font-semibold text-gray-900">Flux d'investissements — Par origine (Mrd USD)</h3>
+          </div>
+          <button
+            onClick={addInvRow}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-white bg-[#0D1B35] hover:bg-[#1a2d5a] transition"
+          >
+            <Plus size={11} /> Ajouter année
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left">
+                <th className="text-gray-400 font-medium pb-2 pr-2 w-16">Année</th>
+                <th className="text-gray-400 font-medium pb-2 pr-2">Chine</th>
+                <th className="text-gray-400 font-medium pb-2 pr-2">Europe</th>
+                <th className="text-gray-400 font-medium pb-2 pr-2">USA</th>
+                <th className="text-gray-400 font-medium pb-2 pr-2">Autres</th>
+                <th className="pb-2 w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.investment.map((row, idx) => (
+                <tr key={idx}>
+                  {(["year", "china", "europe", "usa", "other"] as const).map((field) => (
+                    <td key={field} className="pr-2 py-1">
+                      <input
+                        type={field === "year" ? "text" : "number"}
+                        step="0.1"
+                        value={row[field]}
+                        onChange={(e) => updateInv(idx, field, e.target.value)}
+                        className={inputCls}
+                        style={borderStyle}
+                      />
+                    </td>
+                  ))}
+                  <td className="py-1">
+                    <button
+                      onClick={() => removeInvRow(idx)}
+                      disabled={data.investment.length <= 2}
+                      className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 disabled:opacity-30 transition"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-3">
+          Total Chine {data.investment.at(-1)?.year} : {data.investment.at(-1)?.china?.toLocaleString("fr-FR")} Mrd USD
+        </p>
+      </div>
+
+      {/* Bouton bas de page */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#00A651] hover:bg-[#008c44] flex items-center gap-2 transition disabled:opacity-50"
+        >
+          {saving ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
+          Enregistrer et diffuser
+        </button>
+      </div>
     </div>
   );
 }

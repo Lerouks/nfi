@@ -155,6 +155,12 @@ INSERT INTO public.site_config (key, value) VALUES (
   '[{"label":"Économie Africaine","slug":"economie-africaine","icon":"Globe"},{"label":"Économie Mondiale","slug":"economie-mondiale","icon":"TrendingUp"},{"label":"Focus Niger","slug":"focus-niger","icon":"MapPin"},{"label":"Analyses de Marché","slug":"analyses-de-marche","icon":"BarChart2"}]'::jsonb
 ) ON CONFLICT (key) DO NOTHING;
 
+-- Données graphiques Marchés & Analyses par défaut
+INSERT INTO public.site_config (key, value) VALUES (
+  'chart_data',
+  '{"brvm":[{"month":"Août","value":315},{"month":"Sep","value":322},{"month":"Oct","value":318},{"month":"Nov","value":329},{"month":"Déc","value":335},{"month":"Jan","value":338},{"month":"Fév","value":342}],"gdpGrowth":[{"country":"Niger","value":6.0},{"country":"Sénégal","value":8.3},{"country":"Côte d''Ivoire","value":6.9},{"country":"Mali","value":3.2},{"country":"Burkina","value":2.1},{"country":"Guinée","value":4.8}],"investment":[{"year":"2020","china":8.2,"europe":12.4,"usa":6.1,"other":4.3},{"year":"2021","china":9.1,"europe":11.8,"usa":7.2,"other":5.1},{"year":"2022","china":10.5,"europe":10.9,"usa":8.3,"other":6.2},{"year":"2023","china":12.3,"europe":9.8,"usa":9.1,"other":7.8},{"year":"2024","china":14.1,"europe":11.2,"usa":10.5,"other":8.9},{"year":"2025","china":16.8,"europe":12.5,"usa":11.2,"other":9.4}]}'::jsonb
+) ON CONFLICT (key) DO NOTHING;
+
 -- ── Contact messages ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.contact_messages (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -419,6 +425,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { sections } = req.body ?? {};
       if (!Array.isArray(sections)) return res.status(400).json({ error: "sections (array) requis" });
       const { error } = await sb.from("site_config").upsert({ key: "nav_sections", value: sections, updated_at: new Date().toISOString() });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true });
+    }
+
+    // ── GET : données graphiques Marchés & Analyses ──────────────────────────
+    if (action === "get_chart_data") {
+      const { data, error } = await sb.from("site_config").select("value").eq("key", "chart_data").single();
+      if (error) return res.json(null);
+      return res.json(data?.value ?? null);
+    }
+
+    // ── POST : mettre à jour les données graphiques ───────────────────────────
+    if (action === "update_chart_data" && req.method === "POST") {
+      const { chartData } = req.body ?? {};
+      if (!chartData || typeof chartData !== "object") return res.status(400).json({ error: "chartData requis" });
+      const { error } = await sb.from("site_config").upsert({ key: "chart_data", value: chartData, updated_at: new Date().toISOString() });
       if (error) return res.status(500).json({ error: error.message });
       return res.json({ success: true });
     }
