@@ -4,7 +4,7 @@ import { Youtube, Mail, Phone, MapPin, Loader, CheckCircle2, AlertCircle } from 
 import { subscribeNewsletter } from "../../lib/supabase";
 import { analytics } from "../../lib/posthog";
 import { sendWelcomeEmail } from "../../lib/email";
-import { useNavSections } from "../../lib/siteData";
+import { useNavSections, useNewsletterStatus } from "../../lib/siteData";
 
 function TikTokIcon({ size = 16 }: { size?: number }) {
   return (
@@ -58,10 +58,23 @@ const SOCIAL_LINKS = [
 ];
 
 function FooterNewsletter() {
+  const { subscribed, markSubscribed } = useNewsletterStatus();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+
+  // Déjà inscrit(e) → affiche une confirmation discrète, pas de formulaire
+  if (subscribed) {
+    return (
+      <div className="mt-5">
+        <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
+        <div className="flex items-center gap-2 text-green-400 text-xs py-2">
+          <CheckCircle2 size={14} aria-hidden="true" />
+          <span>Vous êtes inscrit(e) à la newsletter.</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,14 +83,10 @@ function FooterNewsletter() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Enregistrement Supabase (fail gracieux si non configuré)
       await subscribeNewsletter(trimmed).catch(() => {});
-      // 2. Analytics PostHog (toujours silencieux)
       analytics.newsletterSignup(trimmed).catch(() => {});
-      // 3. Email de bienvenue (toujours silencieux)
       sendWelcomeEmail(trimmed).catch(() => {});
-      // 4. Afficher le succès dans tous les cas
-      setSuccess(true);
+      markSubscribed(trimmed); // persiste dans localStorage
       setEmail("");
     } catch (err) {
       console.error("[Footer Newsletter]", err);
@@ -86,18 +95,6 @@ function FooterNewsletter() {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="mt-5">
-        <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
-        <div className="flex items-center gap-2 text-green-400 text-xs py-2">
-          <CheckCircle2 size={14} aria-hidden="true" />
-          <span>Inscription confirmée ! Vérifiez votre email.</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mt-5" aria-label="Inscription à la newsletter">

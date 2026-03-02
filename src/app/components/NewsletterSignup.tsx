@@ -3,12 +3,16 @@ import { Mail, CheckCircle2, Loader, AlertCircle } from "lucide-react";
 import { subscribeNewsletter } from "../../lib/supabase";
 import { analytics } from "../../lib/posthog";
 import { sendWelcomeEmail } from "../../lib/email";
+import { useNewsletterStatus } from "../../lib/siteData";
 
 export function NewsletterSignup({ variant = "default" }: { variant?: "default" | "compact" | "banner" }) {
+  const { subscribed, markSubscribed } = useNewsletterStatus();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Déjà inscrit(e) → on n'affiche pas le formulaire
+  if (subscribed) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,17 +23,12 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
     setError(null);
 
     try {
-      // 1. Enregistrer dans Supabase (newsletters table)
       const saved = await subscribeNewsletter(trimmed);
 
       if (saved) {
-        // Email de bienvenue via Supabase Edge Function → Resend
         sendWelcomeEmail(trimmed).catch(() => {});
-
-        // Tracker l'événement dans PostHog
         analytics.newsletterSignup(trimmed).catch(() => {});
-
-        setSuccess(true);
+        markSubscribed(trimmed); // persiste dans localStorage
         setEmail("");
       } else {
         setError("L'inscription a échoué. Veuillez réessayer dans quelques instants.");
@@ -53,35 +52,29 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
         <p className="text-gray-400 text-xs mb-3 leading-relaxed">
           Les analyses financières africaines directement dans votre boîte mail.
         </p>
-        {success ? (
-          <div className="flex items-center gap-2 text-green-400 text-sm">
-            <CheckCircle2 size={16} /> Inscription réussie !
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-2">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="votre@email.com"
-              required
-              className="w-full px-3 py-2 text-sm bg-white/10 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
-            />
-            {error && (
-              <p className="flex items-center gap-1 text-red-400 text-xs">
-                <AlertCircle size={12} /> {error}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 text-sm text-white font-medium rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-60"
-              style={{ background: "#00A651" }}>
-              {loading ? <Loader size={14} className="animate-spin" /> : null}
-              {loading ? "Inscription..." : "S'inscrire gratuitement"}
-            </button>
-          </form>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="votre@email.com"
+            required
+            className="w-full px-3 py-2 text-sm bg-white/10 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
+          />
+          {error && (
+            <p className="flex items-center gap-1 text-red-400 text-xs">
+              <AlertCircle size={12} /> {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 text-sm text-white font-medium rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: "#00A651" }}>
+            {loading ? <Loader size={14} className="animate-spin" /> : null}
+            {loading ? "Inscription..." : "S'inscrire gratuitement"}
+          </button>
+        </form>
       </div>
     );
   }
@@ -100,38 +93,29 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
           <p className="text-gray-400 mb-8 text-sm sm:text-base">
             Rejoignez plus de 15 000 professionnels qui reçoivent notre newsletter économique chaque matin.
           </p>
-          {success ? (
-            <div className="flex items-center justify-center gap-3 text-green-400">
-              <CheckCircle2 size={20} />
-              <span className="text-lg">Parfait ! Vous êtes inscrit(e). Vérifiez votre email.</span>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit}
-                className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Votre adresse email"
-                  required
-                  className="flex-1 px-5 py-3 text-sm bg-white/10 border border-white/20 rounded-full text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
-                />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 text-sm text-white font-semibold rounded-full transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-60"
-                  style={{ background: "#00A651" }}>
-                  {loading ? <Loader size={14} className="animate-spin" /> : null}
-                  {loading ? "..." : "S'abonner"}
-                </button>
-              </form>
-              {error && (
-                <p className="flex items-center justify-center gap-1 text-red-400 text-xs mt-3">
-                  <AlertCircle size={12} /> {error}
-                </p>
-              )}
-            </>
+          <form onSubmit={handleSubmit}
+            className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Votre adresse email"
+              required
+              className="flex-1 px-5 py-3 text-sm bg-white/10 border border-white/20 rounded-full text-white placeholder:text-gray-500 focus:outline-none focus:border-[#00A651]"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 text-sm text-white font-semibold rounded-full transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ background: "#00A651" }}>
+              {loading ? <Loader size={14} className="animate-spin" /> : null}
+              {loading ? "..." : "S'abonner"}
+            </button>
+          </form>
+          {error && (
+            <p className="flex items-center justify-center gap-1 text-red-400 text-xs mt-3">
+              <AlertCircle size={12} /> {error}
+            </p>
           )}
           <p className="text-gray-600 text-xs mt-4">
             Gratuit · Sans spam · Désabonnement en 1 clic
@@ -151,37 +135,29 @@ export function NewsletterSignup({ variant = "default" }: { variant?: "default" 
       <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">
         Analyses quotidiennes, alertes marchés et rapports exclusifs directement dans votre inbox.
       </p>
-      {success ? (
-        <div className="flex items-center justify-center gap-2 text-green-600">
-          <CheckCircle2 size={20} /> <span>Inscription confirmée ! Vérifiez votre email.</span>
-        </div>
-      ) : (
-        <>
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Votre adresse email"
-              required
-              className="flex-1 px-4 py-2.5 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
-              style={{ borderColor: "rgba(0,0,0,0.15)" }}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90 flex items-center gap-2 justify-center disabled:opacity-60"
-              style={{ background: "#00A651" }}>
-              {loading ? <Loader size={13} className="animate-spin" /> : null}
-              {loading ? "..." : "S'inscrire"}
-            </button>
-          </form>
-          {error && (
-            <p className="flex items-center justify-center gap-1 text-red-500 text-xs mt-3">
-              <AlertCircle size={12} /> {error}
-            </p>
-          )}
-        </>
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Votre adresse email"
+          required
+          className="flex-1 px-4 py-2.5 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-[#00A651]/30 focus:border-[#00A651]"
+          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-6 py-2.5 text-sm text-white font-medium rounded-full transition hover:opacity-90 flex items-center gap-2 justify-center disabled:opacity-60"
+          style={{ background: "#00A651" }}>
+          {loading ? <Loader size={13} className="animate-spin" /> : null}
+          {loading ? "..." : "S'inscrire"}
+        </button>
+      </form>
+      {error && (
+        <p className="flex items-center justify-center gap-1 text-red-500 text-xs mt-3">
+          <AlertCircle size={12} /> {error}
+        </p>
       )}
     </section>
   );

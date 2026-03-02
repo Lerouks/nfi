@@ -160,3 +160,22 @@ export function useChartData(): ChartData {
 
   return data;
 }
+
+// ─── useNewsletterStatus ───────────────────────────────────────────────────────
+// Persiste l'inscription newsletter dans localStorage pour ne plus afficher
+// le formulaire sur toutes les pages une fois que l'utilisateur est inscrit.
+
+const NEWSLETTER_LS_KEY = "nfi_newsletter_subscribed";
+
+export function useNewsletterStatus() {
+  const [subscribed, setSubscribed] = useState(() => {
+    try { return !!localStorage.getItem(NEWSLETTER_LS_KEY); } catch { return false; }
+  });
+
+  const markSubscribed = useCallback((email: string) => {
+    try { localStorage.setItem(NEWSLETTER_LS_KEY, email); } catch {}
+    setSubscribed(true);
+  }, []);
+
+  return { subscribed, markSubscribed };
+}
