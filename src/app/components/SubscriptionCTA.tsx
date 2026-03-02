@@ -183,7 +183,7 @@ export function SubscriptionCTA({ variant = "banner" }: SubscriptionCTAProps) {
           qui font la différence
         </h2>
         <p className="text-gray-400 text-sm sm:text-base mb-8 max-w-xl mx-auto">
-          Rejoignez plus de 2 500 professionnels de la finance qui font confiance à NFI REPORT pour leurs décisions d'investissement.
+          Retrouvez toute l'actualité économique et apprenez à les décrypter avec précision. De l'immobilier à la bourse, en passant par le social, les entreprises, la consommation, l'emploi et la vie de bureau. NFI REPORT, votre référence financière au Niger.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-8">
           {[
