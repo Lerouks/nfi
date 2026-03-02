@@ -4,6 +4,7 @@ import { Youtube, Mail, Phone, MapPin, Loader, CheckCircle2, AlertCircle } from 
 import { subscribeNewsletter } from "../../lib/supabase";
 import { analytics } from "../../lib/posthog";
 import { sendWelcomeEmail } from "../../lib/email";
+import { useNavSections } from "../../lib/siteData";
 
 function TikTokIcon({ size = 16 }: { size?: number }) {
   return (
@@ -145,6 +146,7 @@ function FooterNewsletter() {
 }
 
 export function Footer() {
+  const navSections = useNavSections();
   return (
     <footer className="bg-[#0D1B35] text-white" role="contentinfo" aria-label="Pied de page NFI REPORT">
       {/* Main Footer */}
@@ -194,15 +196,10 @@ export function Footer() {
               Sections
             </h4>
             <ul className="space-y-2.5">
-              {[
-                { label: "Économie Africaine", href: "/section/economie-africaine" },
-                { label: "Économie Mondiale", href: "/section/economie-mondiale" },
-                { label: "Focus Niger", href: "/section/focus-niger" },
-                { label: "Analyses de Marché", href: "/section/analyses-de-marche" },
-              ].map(({ label, href }) => (
-                <li key={href}>
-                  <Link to={href} className="text-gray-400 text-sm transition-colors hover:text-[#00A651]">
-                    {label}
+              {navSections.map((s) => (
+                <li key={s.slug}>
+                  <Link to={`/section/${s.slug}`} className="text-gray-400 text-sm transition-colors hover:text-[#00A651]">
+                    {s.label}
                   </Link>
                 </li>
               ))}

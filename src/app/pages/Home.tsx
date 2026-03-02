@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { ArrowRight, TrendingUp, Clock, ChevronRight, Flame } from "lucide-react";
-import { CATEGORIES, TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
+import { TRENDING_TAGS, formatDate, type Article } from "../data/mockData";
+import { useNavSections } from "../../lib/siteData";
 import { getAllArticles, getFeaturedArticles, toArticle, getTrendingTags } from "../../lib/sanity";
 import { getAllArticleViews } from "../../lib/supabase";
 import { ArticleCard } from "../components/ArticleCard";
@@ -54,6 +55,7 @@ function PopularSkeleton() {
 }
 
 export default function Home() {
+  const navSections = useNavSections();
   const [featured, setFeatured]       = useState<Article[]>([]);
   const [latest, setLatest]           = useState<Article[]>([]);
   const [popular, setPopular]         = useState<Article[]>([]);
@@ -91,9 +93,9 @@ export default function Home() {
   }, []);
 
   const categoryCounts = Object.fromEntries(
-    CATEGORIES.map((cat) => [
-      cat.slug,
-      allArticles.filter((a) => a.categorySlug === cat.slug).length,
+    navSections.map((s) => [
+      s.slug,
+      allArticles.filter((a) => a.categorySlug === s.slug).length,
     ])
   );
 
@@ -186,12 +188,12 @@ export default function Home() {
       <div className="bg-[#0D1B35] py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-4 overflow-x-auto scrollbar-none">
           <span className="text-[#D4A017] text-xs font-bold uppercase tracking-wider shrink-0">Sections :</span>
-          {CATEGORIES.map((cat) => (
+          {navSections.map((s) => (
             <Link
-              key={cat.slug}
-              to={`/section/${cat.slug}`}
+              key={s.slug}
+              to={`/section/${s.slug}`}
               className="flex items-center gap-1.5 text-gray-300 hover:text-white text-xs shrink-0 transition-colors py-1 px-3 rounded-full hover:bg-white/10">
-              {cat.name}
+              {s.label}
             </Link>
           ))}
         </div>
@@ -338,17 +340,17 @@ export default function Home() {
               <div className="bg-white rounded-xl border p-5" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
                 <h3 className="text-gray-900 font-semibold text-sm mb-3">Sections</h3>
                 <div className="space-y-1">
-                  {CATEGORIES.map((cat) => (
+                  {navSections.map((s) => (
                     <Link
-                      key={cat.slug}
-                      to={`/section/${cat.slug}`}
+                      key={s.slug}
+                      to={`/section/${s.slug}`}
                       className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
                     >
                       <span className="flex items-center gap-2 text-sm text-gray-700">
-                        {cat.name}
+                        {s.label}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-400">{categoryCounts[cat.slug] ?? 0}</span>
+                        <span className="text-xs text-gray-400">{categoryCounts[s.slug] ?? 0}</span>
                         <ChevronRight size={12} className="text-gray-300 group-hover:text-[#00A651]" />
                       </div>
                     </Link>
