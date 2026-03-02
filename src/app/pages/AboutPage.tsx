@@ -310,7 +310,7 @@ export default function AboutPage() {
               {
                 icon: "💹",
                 title: "Analystes Financiers",
-                desc: "Des professionnels de la finance — gestionnaires de fonds, analystes de marchés, experts en stratégie d'investissement — contribuent à nos rapports sur les marchés financiers africains.",
+                desc: "Des professionnels de la finance (gestionnaires de fonds, analystes de marchés, experts en stratégie d'investissement) contribuent à nos rapports sur les marchés financiers africains.",
               },
               {
                 icon: "📰",
