@@ -40,7 +40,7 @@ function getSupabaseClient(): SupabaseClient {
 export const supabase = getSupabaseClient();
 
 // ─── Helper : ignore toutes les requêtes si Supabase n'est pas configuré ─────
-async function safeQuery<T>(fn: () => Promise<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
+async function safeQuery<T>(fn: () => PromiseLike<{ data: T | null; error: unknown }>, label?: string): Promise<T | null> {
   if (!SUPABASE_READY) {
     console.warn("[Supabase] Non configuré — requête ignorée", label ?? "");
     return null;
@@ -80,6 +80,12 @@ export type NavSection = {
   label: string;
   slug: string;
   icon: string;
+};
+
+export type ChartData = {
+  brvm:       { month: string; value: number }[];
+  gdpGrowth:  { country: string; value: number }[];
+  investment: { year: string; china: number; europe: number; usa: number; other: number }[];
 };
 
 export type ContactMessage = {
@@ -651,5 +657,27 @@ export async function adminGetSections(): Promise<NavSection[]> {
 /** [Admin] Mettre à jour les sections de navigation */
 export async function adminUpdateSections(sections: NavSection[]): Promise<boolean> {
   const res = await callAdminApi<{ success: boolean }>("update_sections", { sections });
+  return res?.success === true;
+}
+
+/** Récupère les données graphiques Marchés & Analyses (lecture publique via site_config) */
+export async function getChartData(): Promise<ChartData | null> {
+  if (!SUPABASE_READY || cbIsOpen('site_config')) return null;
+  try {
+    const { data, error } = await supabase
+      .from("site_config").select("value").eq("key", "chart_data").single();
+    if (error) return null;
+    return (data as { value: ChartData } | null)?.value ?? null;
+  } catch { return null; }
+}
+
+/** [Admin] Données graphiques complètes */
+export async function adminGetChartData(): Promise<ChartData | null> {
+  return callAdminApi<ChartData>("get_chart_data");
+}
+
+/** [Admin] Mettre à jour les données graphiques */
+export async function adminUpdateChartData(chartData: ChartData): Promise<boolean> {
+  const res = await callAdminApi<{ success: boolean }>("update_chart_data", { chartData });
   return res?.success === true;
 }

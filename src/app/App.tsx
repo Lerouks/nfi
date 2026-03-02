@@ -1,6 +1,8 @@
 import { RouterProvider } from "react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { router } from "./routes";
+import { ClerkCheckingCtx } from "../lib/clerkActive";
+import { UserPlanCtx } from "../lib/userPlan";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 const isClerkReady =
@@ -87,5 +89,14 @@ export default function App() {
   }
 
   // En attente de la sonde OU domaine inaccessible → site sans auth (articles visibles)
-  return <RouterProvider router={router} />;
+  // ClerkCheckingCtx = true pendant la sonde (clerkOk === null) pour éviter le flash paywall
+  // UserPlanCtx.isLoading = true pendant la sonde pour éviter le flash des CTAs d'abonnement
+  const probing = clerkOk === null && isClerkReady;
+  return (
+    <ClerkCheckingCtx.Provider value={probing}>
+      <UserPlanCtx.Provider value={{ tier: "free", isLoading: probing }}>
+        <RouterProvider router={router} />
+      </UserPlanCtx.Provider>
+    </ClerkCheckingCtx.Provider>
+  );
 }

@@ -12,12 +12,13 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { getMarketData, getNavSections, type MarketItem, type NavSection } from "./supabase";
-import { MARKET_DATA } from "../app/data/mockData";
+import { getMarketData, getNavSections, getChartData, type MarketItem, type NavSection, type ChartData } from "./supabase";
+import { MARKET_DATA, CHART_DATA } from "../app/data/mockData";
 
 // ─── Channels ─────────────────────────────────────────────────────────────────
 export const MARKET_CHANNEL   = "nfi_market_data";
 export const SECTIONS_CHANNEL = "nfi_nav_sections";
+export const CHARTS_CHANNEL   = "nfi_chart_data";
 
 /** Diffuse une mise à jour aux autres onglets */
 function broadcast(channel: string) {
@@ -30,6 +31,7 @@ function broadcast(channel: string) {
 
 export function broadcastMarketUpdate()   { broadcast(MARKET_CHANNEL); }
 export function broadcastSectionsUpdate() { broadcast(SECTIONS_CHANNEL); }
+export function broadcastChartUpdate()    { broadcast(CHARTS_CHANNEL); }
 
 // ─── Valeurs par défaut (évite le flash au premier rendu) ────────────────────
 
@@ -127,4 +129,53 @@ export function useNavSections(): NavSection[] {
   }, [refetch]);
 
   return sections;
+}
+
+// ─── useChartData ─────────────────────────────────────────────────────────────
+
+export function useChartData(): ChartData {
+  const [data, setData] = useState<ChartData>(CHART_DATA as ChartData);
+
+  const refetch = useCallback(async () => {
+    const remote = await getChartData();
+    if (remote) setData(remote);
+  }, []);
+
+  useEffect(() => {
+    refetch();
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(CHARTS_CHANNEL);
+      bc.onmessage = () => refetch();
+    } catch {}
+
+    const timer = setInterval(refetch, 120_000);
+
+    return () => {
+      bc?.close();
+      clearInterval(timer);
+    };
+  }, [refetch]);
+
+  return data;
+}
+
+// ─── useNewsletterStatus ───────────────────────────────────────────────────────
+// Persiste l'inscription newsletter dans localStorage pour ne plus afficher
+// le formulaire sur toutes les pages une fois que l'utilisateur est inscrit.
+
+const NEWSLETTER_LS_KEY = "nfi_newsletter_subscribed";
+
+export function useNewsletterStatus() {
+  const [subscribed, setSubscribed] = useState(() => {
+    try { return !!localStorage.getItem(NEWSLETTER_LS_KEY); } catch { return false; }
+  });
+
+  const markSubscribed = useCallback((email: string) => {
+    try { localStorage.setItem(NEWSLETTER_LS_KEY, email); } catch {}
+    setSubscribed(true);
+  }, []);
+
+  return { subscribed, markSubscribed };
 }

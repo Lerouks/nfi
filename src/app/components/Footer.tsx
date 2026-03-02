@@ -4,6 +4,7 @@ import { Youtube, Mail, Phone, MapPin, Loader, CheckCircle2, AlertCircle } from 
 import { subscribeNewsletter } from "../../lib/supabase";
 import { analytics } from "../../lib/posthog";
 import { sendWelcomeEmail } from "../../lib/email";
+import { useNavSections, useNewsletterStatus } from "../../lib/siteData";
 
 function TikTokIcon({ size = 16 }: { size?: number }) {
   return (
@@ -57,10 +58,23 @@ const SOCIAL_LINKS = [
 ];
 
 function FooterNewsletter() {
+  const { subscribed, markSubscribed } = useNewsletterStatus();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+
+  // Déjà inscrit(e) → affiche une confirmation discrète, pas de formulaire
+  if (subscribed) {
+    return (
+      <div className="mt-5">
+        <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
+        <div className="flex items-center gap-2 text-green-400 text-xs py-2">
+          <CheckCircle2 size={14} aria-hidden="true" />
+          <span>Vous êtes inscrit(e) à la newsletter.</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,14 +83,10 @@ function FooterNewsletter() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Enregistrement Supabase (fail gracieux si non configuré)
       await subscribeNewsletter(trimmed).catch(() => {});
-      // 2. Analytics PostHog (toujours silencieux)
       analytics.newsletterSignup(trimmed).catch(() => {});
-      // 3. Email de bienvenue (toujours silencieux)
       sendWelcomeEmail(trimmed).catch(() => {});
-      // 4. Afficher le succès dans tous les cas
-      setSuccess(true);
+      markSubscribed(trimmed); // persiste dans localStorage
       setEmail("");
     } catch (err) {
       console.error("[Footer Newsletter]", err);
@@ -85,18 +95,6 @@ function FooterNewsletter() {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="mt-5">
-        <p className="text-xs text-gray-500 mb-2">Newsletter quotidienne</p>
-        <div className="flex items-center gap-2 text-green-400 text-xs py-2">
-          <CheckCircle2 size={14} aria-hidden="true" />
-          <span>Inscription confirmée ! Vérifiez votre email.</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mt-5" aria-label="Inscription à la newsletter">
@@ -145,6 +143,7 @@ function FooterNewsletter() {
 }
 
 export function Footer() {
+  const navSections = useNavSections();
   return (
     <footer className="bg-[#0D1B35] text-white" role="contentinfo" aria-label="Pied de page NFI REPORT">
       {/* Main Footer */}
@@ -194,15 +193,10 @@ export function Footer() {
               Sections
             </h4>
             <ul className="space-y-2.5">
-              {[
-                { label: "Économie Africaine", href: "/section/economie-africaine" },
-                { label: "Économie Mondiale", href: "/section/economie-mondiale" },
-                { label: "Focus Niger", href: "/section/focus-niger" },
-                { label: "Analyses de Marché", href: "/section/analyses-de-marche" },
-              ].map(({ label, href }) => (
-                <li key={href}>
-                  <Link to={href} className="text-gray-400 text-sm transition-colors hover:text-[#00A651]">
-                    {label}
+              {navSections.map((s) => (
+                <li key={s.slug}>
+                  <Link to={`/section/${s.slug}`} className="text-gray-400 text-sm transition-colors hover:text-[#00A651]">
+                    {s.label}
                   </Link>
                 </li>
               ))}

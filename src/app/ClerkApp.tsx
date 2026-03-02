@@ -7,6 +7,8 @@ import { upsertProfile } from "../lib/supabase";
 import { analytics } from "../lib/posthog";
 import { setUserContext, clearUserContext } from "../lib/sentry";
 import { ClerkActiveCtx } from "../lib/clerkActive";
+import { UserPlanCtx } from "../lib/userPlan";
+import { useSubscription } from "../lib/subscription";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
@@ -49,13 +51,30 @@ function UserSync() {
   return null;
 }
 
+// ─── Fournit le plan d'abonnement à tout le sous-arbre ───────────────────────
+// Doit être monté à l'intérieur de ClerkProvider pour pouvoir appeler useUser().
+function PlanProvider({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+  const subscription = useSubscription(isLoaded ? (user?.id ?? null) : undefined);
+  return (
+    <UserPlanCtx.Provider value={{
+      tier: subscription.tier,
+      isLoading: !isLoaded || subscription.isLoading,
+    }}>
+      {children}
+    </UserPlanCtx.Provider>
+  );
+}
+
 // ─── App wrappée avec ClerkProvider ──────────────────────────────────────────
 export default function ClerkApp() {
   return (
     <ClerkProvider publishableKey={clerkKey} appearance={clerkAppearance}>
       <ClerkActiveCtx.Provider value={true}>
         <UserSync />
-        <RouterProvider router={router} />
+        <PlanProvider>
+          <RouterProvider router={router} />
+        </PlanProvider>
       </ClerkActiveCtx.Provider>
     </ClerkProvider>
   );
