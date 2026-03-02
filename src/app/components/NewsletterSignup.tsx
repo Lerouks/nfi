@@ -4,15 +4,17 @@ import { subscribeNewsletter } from "../../lib/supabase";
 import { analytics } from "../../lib/posthog";
 import { sendWelcomeEmail } from "../../lib/email";
 import { useNewsletterStatus } from "../../lib/siteData";
+import { useUserPlan } from "../../lib/userPlan";
 
 export function NewsletterSignup({ variant = "default" }: { variant?: "default" | "compact" | "banner" }) {
   const { subscribed, markSubscribed } = useNewsletterStatus();
+  const { tier } = useUserPlan();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Déjà inscrit(e) → on n'affiche pas le formulaire
-  if (subscribed) return null;
+  // Abonnés payants ou déjà inscrits → pas de formulaire newsletter
+  if (subscribed || tier === "standard" || tier === "premium") return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

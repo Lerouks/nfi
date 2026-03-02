@@ -289,3 +289,19 @@
     transition: none !important;
   }
 }
+
+/* ─── NFI — Utilitaires ──────────────────────────────────────────────────────
+   scrollbar-none : masque la scrollbar sur tous les navigateurs (y compris
+   iOS Safari qui ignore scrollbar-width: none).
+   ─────────────────────────────────────────────────────────────────────────── */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Offset de scroll pour le header sticky (h-16 = 64px + 8px marge) */
+@utility scroll-mt-navbar {
+  scroll-margin-top: 72px;
+}

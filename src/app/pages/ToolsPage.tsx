@@ -187,6 +187,19 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
     setSearchParams({ outil: activeId }, { replace: true });
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Quand l'abonnement finit de charger et que l'outil actif est verrouillé,
+  // basculer automatiquement vers le premier outil gratuit pour éviter de rester
+  // bloqué sur le paywall (ex : URL ?outil=salary pour un utilisateur free)
+  useEffect(() => {
+    if (!subscriptionLoading && !isPremium) {
+      const active = ALL_TOOLS.find((t) => t.id === activeId);
+      if (active?.plan === "premium") {
+        setActiveId(FREE_TOOLS[0].id);
+        setLoadedIds(new Set([FREE_TOOLS[0].id]));
+      }
+    }
+  }, [subscriptionLoading, isPremium]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const active = ALL_TOOLS.find((t) => t.id === activeId) ?? FREE_TOOLS[0];
   const isActiveLocked = !isPremium && active.plan === "premium";
 
@@ -403,7 +416,7 @@ function ToolsPageContent({ isPremium, subscriptionLoading }: { isPremium: boole
           </aside>
 
           {/* ── Contenu outil ───────────────────────────────────── */}
-          <main id="tool-content" className="flex-1 min-w-0" aria-label={`Outil actif : ${active.label}`}>
+          <main id="tool-content" className="flex-1 min-w-0 scroll-mt-navbar" aria-label={`Outil actif : ${active.label}`}>
             {/* Breadcrumb + badge plan */}
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-2 text-sm text-gray-400">
