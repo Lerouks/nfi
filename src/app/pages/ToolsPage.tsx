@@ -5,7 +5,7 @@ import {
   Star, Lock, ChevronRight, Sparkles, Zap,
 } from "lucide-react";
 import { useUser } from "@clerk/clerk-react";
-import { useClerkActive } from "../../lib/clerkActive";
+import { useClerkActive, useClerkChecking } from "../../lib/clerkActive";
 import { useSubscription } from "../../lib/subscription";
 
 // ─── Lazy imports ─────────────────────────────────────────────────────────────
@@ -162,8 +162,10 @@ function ToolNavItem({
 // ─── Export principal ─────────────────────────────────────────────────────────
 export default function ToolsPage() {
   const clerkActive = useClerkActive();
+  // clerkChecking = true pendant la sonde réseau (~2 s) → affiche skeleton au lieu du paywall
+  const clerkChecking = useClerkChecking();
   if (clerkActive) return <ToolsPageWithClerk />;
-  return <ToolsPageContent isPremium={false} subscriptionLoading={false} />;
+  return <ToolsPageContent isPremium={false} subscriptionLoading={clerkChecking} />;
 }
 
 // ─── Contenu (design inchangé) ────────────────────────────────────────────────

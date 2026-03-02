@@ -13,11 +13,18 @@ export function MarketOverview() {
 
   function relativeTime(d: Date): string {
     const diffMin = Math.floor((Date.now() - d.getTime()) / 60_000);
-    if (diffMin < 1)  return "à l'instant";
-    if (diffMin < 60) return `il y a ${diffMin} min`;
+    if (diffMin < 1)    return "à l'instant";
+    if (diffMin < 60)   return `il y a ${diffMin} min`;
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24)   return `il y a ${diffH}h`;
-    return `il y a ${Math.floor(diffH / 24)}j`;
+    if (diffH < 24)     return `il y a ${diffH}h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7)      return `il y a ${diffD} jour${diffD > 1 ? "s" : ""}`;
+    const diffW = Math.floor(diffD / 7);
+    if (diffW < 5)      return `il y a ${diffW} semaine${diffW > 1 ? "s" : ""}`;
+    const diffMo = Math.floor(diffD / 30);
+    if (diffMo < 12)    return `il y a ${diffMo} mois`;
+    const diffY = Math.floor(diffD / 365);
+    return `il y a ${diffY} an${diffY > 1 ? "s" : ""}`;
   }
 
   return (
